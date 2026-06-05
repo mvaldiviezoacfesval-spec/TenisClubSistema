@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block title %}Asientos Contables{% endblock %}
+{% block icon %}journal-richtext{% endblock %}
+{% block page_title %}Asientos Contables{% endblock %}
+{% block content %}
+<div class="module-header">
+  <h2><i class="bi bi-journal-richtext me-2"></i>Libro diario</h2>
+  <a href="{{ url_for('asiento_nuevo') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Nuevo asiento</a>
+</div>
+<div class="card mb-3">
+  <div class="card-body py-2">
+    <form method="GET" class="row g-2 align-items-end">
+      <div class="col-md-3"><label class="form-label mb-1">Desde</label><input type="date" name="fecha_ini" class="form-control form-control-sm" value="{{ fecha_ini }}"></div>
+      <div class="col-md-3"><label class="form-label mb-1">Hasta</label><input type="date" name="fecha_fin" class="form-control form-control-sm" value="{{ fecha_fin }}"></div>
+      <div class="col-auto"><button class="btn btn-sm btn-primary">Filtrar</button></div>
+    </form>
+  </div>
+</div>
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover">
+      <thead><tr><th>No.</th><th>Fecha</th><th>Concepto</th><th>Tipo</th><th>Debe</th><th>Haber</th><th>Estado</th><th></th></tr></thead>
+      <tbody>
+      {% for a in asientos %}
+        <tr>
+          <td><strong>{{ a.numero }}</strong></td><td>{{ a.fecha }}</td><td>{{ a.concepto }}</td><td>{{ a.tipo }}</td>
+          <td>${{ "%.2f"|format(a.total_debe) }}</td><td>${{ "%.2f"|format(a.total_haber) }}</td>
+          <td><span class="badge-estado badge-{% if "%.2f"|format(a.total_debe) == "%.2f"|format(a.total_haber) %}pagado{% else %}vencido{% endif %}">{{ 'Cuadrado' if "%.2f"|format(a.total_debe) == "%.2f"|format(a.total_haber) else 'Descuadrado' }}</span></td>
+          <td><a href="{{ url_for('asiento_detalle', id=a.id) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-eye"></i></a></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="8" class="text-center text-muted py-4">Sin asientos en el rango seleccionado.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

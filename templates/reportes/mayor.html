@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}Mayor Contable{% endblock %}
+{% block icon %}list-columns-reverse{% endblock %}
+{% block page_title %}Mayor Contable{% endblock %}
+{% block content %}
+<div class="card mb-3"><div class="card-body"><form method="GET" class="row g-2 align-items-end">
+  <div class="col-md-4"><label class="form-label">Cuenta</label><select name="cuenta_id" class="form-select" required><option value="">Seleccione cuenta</option>{% for c in cuentas %}<option value="{{ c.id }}" {% if cuenta_id|string == c.id|string %}selected{% endif %}>{{ c.codigo }} - {{ c.nombre }}</option>{% endfor %}</select></div>
+  <div class="col-md-2"><label class="form-label">Desde</label><input name="fecha_ini" type="date" value="{{ fecha_ini }}" class="form-control"></div>
+  <div class="col-md-2"><label class="form-label">Hasta</label><input name="fecha_fin" type="date" value="{{ fecha_fin }}" class="form-control"></div>
+  <div class="col-auto"><button class="btn btn-primary">Consultar</button></div><div class="col-auto"><button type="button" onclick="window.print()" class="btn btn-outline-secondary no-print"><i class="bi bi-printer"></i></button></div>
+</form></div></div>
+{% if cuenta %}
+<div class="card"><div class="card-header"><code>{{ cuenta.codigo }}</code> {{ cuenta.nombre }} - Naturaleza {{ cuenta.naturaleza }}</div><div class="table-responsive"><table class="table table-hover">
+  <thead><tr><th>Fecha</th><th>Asiento</th><th>Concepto</th><th>Detalle</th><th>Debe</th><th>Haber</th><th>Saldo</th></tr></thead>
+  <tbody>{% for mov, saldo_linea in filas %}<tr><td>{{ mov.fecha }}</td><td>{{ mov.numero }}</td><td>{{ mov.concepto }}</td><td>{{ mov.descripcion }}</td><td>${{ "%.2f"|format(mov.debe) }}</td><td>${{ "%.2f"|format(mov.haber) }}</td><td><strong>${{ "%.2f"|format(saldo_linea) }}</strong></td></tr>{% else %}<tr><td colspan="7" class="text-center text-muted py-4">Sin movimientos para esta cuenta.</td></tr>{% endfor %}<tr class="summary-row"><td colspan="6">Saldo final</td><td>${{ "%.2f"|format(saldo) }}</td></tr></tbody>
+</table></div></div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block title %}Detalle Asiento{% endblock %}
+{% block icon %}journal-richtext{% endblock %}
+{% block page_title %}Asiento {{ asiento.numero }}{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-header d-flex justify-content-between"><span>{{ asiento.fecha }} - {{ asiento.concepto }}</span><button onclick="window.print()" class="btn btn-sm btn-outline-secondary no-print"><i class="bi bi-printer"></i></button></div>
+  <div class="table-responsive">
+    <table class="table">
+      <thead><tr><th>Cuenta</th><th>Descripcion</th><th>Debe</th><th>Haber</th></tr></thead>
+      <tbody>
+      {% set total_debe = namespace(v=0) %}{% set total_haber = namespace(v=0) %}
+      {% for d in detalles %}
+        {% set total_debe.v = total_debe.v + d.debe %}{% set total_haber.v = total_haber.v + d.haber %}
+        <tr><td><code>{{ d.codigo }}</code> {{ d.nombre }}</td><td>{{ d.descripcion }}</td><td>${{ "%.2f"|format(d.debe) }}</td><td>${{ "%.2f"|format(d.haber) }}</td></tr>
+      {% endfor %}
+      <tr class="summary-row"><td colspan="2">Total</td><td>${{ "%.2f"|format(total_debe.v) }}</td><td>${{ "%.2f"|format(total_haber.v) }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

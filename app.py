@@ -972,6 +972,138 @@ def cuenta_nueva():
     return render_template('plan_cuentas/form.html')
 
 # ─────────────────────────────────────────────
+@app.route('/asientos')
+def asientos():
+    fecha_ini = request.args.get('fecha_ini', datetime.now().strftime('%Y-%m-01'))
+    fecha_fin = request.args.get('fecha_fin', hoy())
+    conn = get_db()
+    asientos_list = conn.execute("""
+        SELECT a.*,
+               COALESCE(SUM(d.debe),0) as total_debe,
+               COALESCE(SUM(d.haber),0) as total_haber
+        FROM asientos a
+        LEFT JOIN asiento_detalles d ON d.asiento_id=a.id
+        WHERE a.fecha BETWEEN ? AND ?
+        GROUP BY a.id
+        ORDER BY a.fecha DESC, a.numero DESC
+    """, (fecha_ini, fecha_fin)).fetchall()
+    conn.close()
+    return render_template('asientos/index.html', asientos=asientos_list, fecha_ini=fecha_ini, fecha_fin=fecha_fin)
+
+@app.route('/asientos/nuevo', methods=['GET','POST'])
+def asiento_nuevo():
+    conn = get_db()
+    cuentas = conn.execute("SELECT * FROM plan_cuentas WHERE activa=1 ORDER BY codigo").fetchall()
+    if request.method == 'POST':
+        cuenta_ids = request.form.getlist('cuenta_id[]')
+        descripciones = request.form.getlist('detalle_desc[]')
+        debes = request.form.getlist('debe[]')
+        haberes = request.form.getlist('haber[]')
+        detalles = []
+        total_debe = 0.0
+        total_haber = 0.0
+        for cuenta_id, desc, debe, haber in zip(cuenta_ids, descripciones, debes, haberes):
+            debe_val = float(debe or 0)
+            haber_val = float(haber or 0)
+            if cuenta_id and (debe_val > 0 or haber_val > 0):
+                detalles.append((int(cuenta_id), desc, debe_val, haber_val))
+                total_debe += debe_val
+                total_haber += haber_val
+        if len(detalles) < 2:
+            flash('El asiento debe tener al menos dos lineas.', 'danger')
+        elif round(total_debe, 2) != round(total_haber, 2):
+            flash('El asiento no cuadra: debe y haber deben ser iguales.', 'danger')
+        else:
+            try:
+                numero = sig_numero('asientos', 'numero', 'ASI')
+                cur = conn.execute('''INSERT INTO asientos
+                    (numero,fecha,concepto,tipo,referencia_tipo)
+                    VALUES(?,?,?,?,?)''', (
+                    numero, request.form['fecha'], request.form['concepto'],
+                    request.form.get('tipo','manual'), request.form.get('referencia_tipo','manual')
+                ))
+                asiento_id = cur.lastrowid
+                for cuenta_id, desc, debe_val, haber_val in detalles:
+                    conn.execute('''INSERT INTO asiento_detalles
+                        (asiento_id,cuenta_id,descripcion,debe,haber)
+                        VALUES(?,?,?,?,?)''', (
+                        asiento_id, cuenta_id, desc, debe_val, haber_val
+                    ))
+                conn.commit()
+                flash(f'Asiento {numero} registrado correctamente.', 'success')
+                return redirect(url_for('asiento_detalle', id=asiento_id))
+            except Exception as e:
+                flash(f'Error: {e}', 'danger')
+    conn.close()
+    numero_preview = sig_numero('asientos', 'numero', 'ASI')
+    return render_template('asientos/form.html', cuentas=cuentas, hoy=hoy(), numero=numero_preview)
+
+@app.route('/asientos/<int:id>')
+def asiento_detalle(id):
+    conn = get_db()
+    asiento = conn.execute("SELECT * FROM asientos WHERE id=?", (id,)).fetchone()
+    detalles = conn.execute("""
+        SELECT d.*, p.codigo, p.nombre
+        FROM asiento_detalles d
+        JOIN plan_cuentas p ON p.id=d.cuenta_id
+        WHERE d.asiento_id=?
+        ORDER BY d.id
+    """, (id,)).fetchall()
+    conn.close()
+    return render_template('asientos/detalle.html', asiento=asiento, detalles=detalles)
+
+@app.route('/reportes/diario-contable')
+def diario_contable():
+    fecha_ini = request.args.get('fecha_ini', datetime.now().strftime('%Y-%m-01'))
+    fecha_fin = request.args.get('fecha_fin', hoy())
+    conn = get_db()
+    filas = conn.execute("""
+        SELECT a.numero, a.fecha, a.concepto, a.tipo,
+               p.codigo, p.nombre as cuenta,
+               d.descripcion, d.debe, d.haber
+        FROM asientos a
+        JOIN asiento_detalles d ON d.asiento_id=a.id
+        JOIN plan_cuentas p ON p.id=d.cuenta_id
+        WHERE a.fecha BETWEEN ? AND ?
+        ORDER BY a.fecha, a.numero, d.id
+    """, (fecha_ini, fecha_fin)).fetchall()
+    total_debe = sum(row['debe'] for row in filas)
+    total_haber = sum(row['haber'] for row in filas)
+    conn.close()
+    return render_template('reportes/diario_contable.html', filas=filas, fecha_ini=fecha_ini,
+                           fecha_fin=fecha_fin, total_debe=total_debe, total_haber=total_haber)
+
+@app.route('/reportes/mayor')
+def mayor_contable():
+    cuenta_id = request.args.get('cuenta_id','')
+    fecha_ini = request.args.get('fecha_ini', datetime.now().strftime('%Y-%m-01'))
+    fecha_fin = request.args.get('fecha_fin', hoy())
+    conn = get_db()
+    cuentas = conn.execute("SELECT * FROM plan_cuentas WHERE activa=1 ORDER BY codigo").fetchall()
+    movimientos = []
+    cuenta = None
+    saldo = 0.0
+    if cuenta_id:
+        cuenta = conn.execute("SELECT * FROM plan_cuentas WHERE id=?", (cuenta_id,)).fetchone()
+        movimientos = conn.execute("""
+            SELECT a.numero, a.fecha, a.concepto, d.descripcion, d.debe, d.haber
+            FROM asiento_detalles d
+            JOIN asientos a ON a.id=d.asiento_id
+            WHERE d.cuenta_id=? AND a.fecha BETWEEN ? AND ?
+            ORDER BY a.fecha, a.numero, d.id
+        """, (cuenta_id, fecha_ini, fecha_fin)).fetchall()
+    conn.close()
+    filas = []
+    for mov in movimientos:
+        if cuenta and cuenta['naturaleza'] == 'Acreedora':
+            saldo += mov['haber'] - mov['debe']
+        else:
+            saldo += mov['debe'] - mov['haber']
+        filas.append((mov, saldo))
+    return render_template('reportes/mayor.html', cuentas=cuentas, cuenta=cuenta, filas=filas,
+                           cuenta_id=cuenta_id, fecha_ini=fecha_ini, fecha_fin=fecha_fin, saldo=saldo)
+
+# ─────────────────────────────────────────────
 create_app()
 
 if __name__ == '__main__':

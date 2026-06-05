@@ -8,6 +8,7 @@ __pycache__/
 .pythonanywhere-test/
 .workflow-test/
 .routes-test/
+.asientos-test/
 tenis_club.db
 instance/
 .env

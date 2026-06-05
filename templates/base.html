@@ -45,6 +45,9 @@
     <a href="{{ url_for('plan_cuentas') }}" class="nav-link {% if 'plan_cuenta' in request.endpoint %}active{% endif %}">
       <span class="icon"><i class="bi bi-diagram-3"></i></span> Plan de Cuentas
     </a>
+    <a href="{{ url_for('asientos') }}" class="nav-link {% if 'asiento' in request.endpoint %}active{% endif %}">
+      <span class="icon"><i class="bi bi-journal-richtext"></i></span> Asientos Contables
+    </a>
 
     <div class="nav-section">Plus</div>
     <a href="{{ url_for('cuotas') }}" class="nav-link {% if 'cuota' in request.endpoint %}active{% endif %}">
@@ -81,6 +84,12 @@
     </a>
     <a href="{{ url_for('estado_resultados') }}" class="nav-link {% if request.endpoint=='estado_resultados' %}active{% endif %}">
       <span class="icon"><i class="bi bi-graph-up"></i></span> Estado de Resultados
+    </a>
+    <a href="{{ url_for('diario_contable') }}" class="nav-link {% if request.endpoint=='diario_contable' %}active{% endif %}">
+      <span class="icon"><i class="bi bi-journal-text"></i></span> Diario Contable
+    </a>
+    <a href="{{ url_for('mayor_contable') }}" class="nav-link {% if request.endpoint=='mayor_contable' %}active{% endif %}">
+      <span class="icon"><i class="bi bi-list-columns-reverse"></i></span> Mayor Contable
     </a>
   </nav>
 

@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block title %}Diario Contable{% endblock %}
+{% block icon %}journal-richtext{% endblock %}
+{% block page_title %}Diario Contable{% endblock %}
+{% block content %}
+<div class="card mb-3"><div class="card-body"><form method="GET" class="row g-2"><div class="col-md-3"><input name="fecha_ini" type="date" value="{{ fecha_ini }}" class="form-control"></div><div class="col-md-3"><input name="fecha_fin" type="date" value="{{ fecha_fin }}" class="form-control"></div><div class="col-auto"><button class="btn btn-primary">Filtrar</button></div><div class="col-auto"><button type="button" onclick="window.print()" class="btn btn-outline-secondary no-print"><i class="bi bi-printer"></i></button></div></form></div></div>
+<div class="card"><div class="table-responsive"><table class="table table-hover">
+  <thead><tr><th>Fecha</th><th>Asiento</th><th>Concepto</th><th>Cuenta</th><th>Detalle</th><th>Debe</th><th>Haber</th></tr></thead>
+  <tbody>{% for f in filas %}<tr><td>{{ f.fecha }}</td><td>{{ f.numero }}</td><td>{{ f.concepto }}</td><td><code>{{ f.codigo }}</code> {{ f.cuenta }}</td><td>{{ f.descripcion }}</td><td>${{ "%.2f"|format(f.debe) }}</td><td>${{ "%.2f"|format(f.haber) }}</td></tr>{% else %}<tr><td colspan="7" class="text-center text-muted py-4">Sin asientos contables.</td></tr>{% endfor %}<tr class="summary-row"><td colspan="5">Totales</td><td>${{ "%.2f"|format(total_debe) }}</td><td>${{ "%.2f"|format(total_haber) }}</td></tr></tbody>
+</table></div></div>
+{% endblock %}
