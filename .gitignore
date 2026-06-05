@@ -9,6 +9,7 @@ __pycache__/
 .workflow-test/
 .routes-test/
 .asientos-test/
+.auth-test/
 tenis_club.db
 instance/
 .env

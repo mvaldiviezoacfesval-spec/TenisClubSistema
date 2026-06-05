@@ -40,8 +40,14 @@ Working directory: /home/TU_USUARIO/TenisClubSistema
 12. Abre el archivo WSGI.
 13. Borra su contenido.
 14. Pega el contenido de `pythonanywhere_wsgi.py` si el script no lo hizo automaticamente.
-15. Guarda.
-16. Click en **Reload**.
+15. Debajo de `APP_USERNAME`, agrega tu contrasena privada:
+
+```python
+os.environ["APP_PASSWORD"] = "Directiva2026"
+```
+
+16. Guarda.
+17. Click en **Reload**.
 
 ## Verificar
 

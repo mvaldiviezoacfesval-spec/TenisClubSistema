@@ -1,10 +1,12 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, session
 from datetime import datetime, date, timedelta
 from database import get_db, init_db
 import io, os
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'TenisClubMilagro2026_SecretKey')
+APP_USERNAME = os.environ.get('APP_USERNAME', 'administraciontenisclub')
+APP_PASSWORD = os.environ.get('APP_PASSWORD')
 
 def create_app():
     init_db()
@@ -13,6 +15,40 @@ def create_app():
 @app.context_processor
 def inject_now():
     return {'now': datetime.now()}
+
+@app.before_request
+def proteger_sistema():
+    rutas_publicas = {'login', 'health', 'static'}
+    if request.endpoint in rutas_publicas:
+        return None
+    if session.get('autenticado'):
+        return None
+    return redirect(url_for('login', next=request.full_path if request.query_string else request.path))
+
+@app.route('/login', methods=['GET','POST'])
+def login():
+    if session.get('autenticado'):
+        return redirect(url_for('dashboard'))
+    if request.method == 'POST':
+        if not APP_PASSWORD:
+            flash('La contrasena administrativa no esta configurada en el servidor.', 'danger')
+            return render_template('login.html')
+        usuario = request.form.get('usuario','').strip()
+        contrasena = request.form.get('contrasena','')
+        if usuario == APP_USERNAME and contrasena == APP_PASSWORD:
+            session['autenticado'] = True
+            session['usuario'] = usuario
+            flash('Bienvenido al sistema.', 'success')
+            destino = request.args.get('next') or url_for('dashboard')
+            return redirect(destino)
+        flash('Usuario o contrasena incorrectos.', 'danger')
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    flash('Sesion cerrada correctamente.', 'success')
+    return redirect(url_for('login'))
 
 @app.route('/proforma-oficial')
 def proforma_oficial():

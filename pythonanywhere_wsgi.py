@@ -17,6 +17,9 @@ if PROJECT_HOME not in sys.path:
 
 os.environ["DB_PATH"] = os.path.join(PROJECT_HOME, "tenis_club.db")
 os.environ["FLASK_DEBUG"] = "0"
+os.environ.setdefault("APP_USERNAME", "administraciontenisclub")
+# En PythonAnywhere, agrega esta variable manualmente con la contrasena privada.
+# os.environ["APP_PASSWORD"] = "TU_CONTRASENA"
 
 from app import create_app
 
