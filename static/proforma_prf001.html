@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Proforma PRF-001-2026 — MAVA COMPANY</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', 'Segoe UI', sans-serif;
+      background: #f0f2f5;
+      color: #2c3e50;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    /* ── BOTONES CONTROL (no imprimir) ── */
+    .ctrl-bar {
+      background: #1B4D2E;
+      padding: 10px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .ctrl-bar span {
+      color: #C9A84C;
+      font-weight: 700;
+      font-size: 14px;
+      letter-spacing: 0.5px;
+    }
+    .ctrl-bar .btns { display: flex; gap: 10px; }
+    .ctrl-bar button {
+      padding: 7px 18px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .btn-print { background: #C9A84C; color: white; }
+    .btn-back  { background: rgba(255,255,255,0.15); color: white; }
+    .btn-back:hover  { background: rgba(255,255,255,0.25); }
+
+    /* ── PÁGINA A4 ── */
+    .page {
+      width: 794px;
+      margin: 28px auto;
+      background: white;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    /* ── ENCABEZADO ── */
+    .doc-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 32px 40px 24px;
+      border-bottom: 3px solid #1B4D2E;
+    }
+
+    .brand-section { display: flex; align-items: flex-start; gap: 16px; }
+    .brand-logo {
+      width: 52px; height: 52px;
+      background: #1B4D2E;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      color: #C9A84C;
+      font-weight: 800;
+      font-size: 16px;
+      letter-spacing: -1px;
+      flex-shrink: 0;
+    }
+    .brand-name {
+      font-size: 22px;
+      font-weight: 800;
+      color: #1B4D2E;
+      letter-spacing: -0.5px;
+      line-height: 1;
+    }
+    .brand-sub {
+      font-size: 11px;
+      color: #6c757d;
+      margin-top: 3px;
+    }
+    .brand-contact {
+      margin-top: 8px;
+      font-size: 11.5px;
+      color: #555;
+      line-height: 1.7;
+    }
+    .brand-contact i { color: #1B4D2E; margin-right: 4px; }
+
+    .doc-id-section { text-align: right; }
+    .doc-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      color: #999;
+      text-transform: uppercase;
+    }
+    .doc-number {
+      font-size: 26px;
+      font-weight: 800;
+      color: #1B4D2E;
+      margin: 2px 0 8px;
+    }
+    .doc-meta { font-size: 12px; color: #555; line-height: 1.8; }
+    .doc-meta strong { color: #2c3e50; }
+
+    .validez-badge {
+      display: inline-block;
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffc107;
+      border-radius: 20px;
+      padding: 2px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+
+    /* ── INFO SECTION ── */
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      border-bottom: 1px solid #e9ecef;
+    }
+    .info-cell {
+      padding: 20px 40px;
+      border-right: 1px solid #e9ecef;
+    }
+    .info-cell:last-child { border-right: none; }
+    .info-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: #999;
+      margin-bottom: 6px;
+    }
+    .info-name {
+      font-size: 17px;
+      font-weight: 700;
+      color: #1B4D2E;
+    }
+    .info-detail { font-size: 12px; color: #555; margin-top: 2px; }
+    .info-obj { font-size: 12.5px; color: #444; line-height: 1.6; }
+
+    /* ── BODY ── */
+    .doc-body { padding: 28px 40px; }
+
+    /* ── SECTION TITLE ── */
+    .section-title {
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: #1B4D2E;
+      margin-bottom: 12px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid #1B4D2E;
+    }
+
+    /* ── TABLA MÓDULOS ── */
+    .table-modulos {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 28px;
+      font-size: 12.5px;
+    }
+    .table-modulos thead tr {
+      background: #1B4D2E;
+      color: white;
+    }
+    .table-modulos thead th {
+      padding: 10px 14px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 11px;
+      letter-spacing: 0.3px;
+    }
+    .table-modulos thead th.center { text-align: center; }
+    .table-modulos tbody tr { border-bottom: 1px solid #f0f0f0; }
+    .table-modulos tbody tr:hover { background: #f8fffe; }
+    .table-modulos td { padding: 9px 14px; vertical-align: top; }
+    .table-modulos td.num { text-align: center; color: #999; font-weight: 600; font-size: 12px; }
+    .modulo-nombre { font-weight: 600; color: #1B4D2E; }
+    .modulo-desc { color: #555; font-size: 12px; line-height: 1.5; margin-top: 1px; }
+
+    /* ── BADGES TIPO ── */
+    .badge-base {
+      display: inline-block;
+      background: #d1ecf1;
+      color: #0c5460;
+      border-radius: 12px;
+      padding: 2px 10px;
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+    .badge-plus {
+      display: inline-block;
+      background: #e0d7f5;
+      color: #4a3880;
+      border-radius: 12px;
+      padding: 2px 10px;
+      font-size: 10.5px;
+      font-weight: 700;
+    }
+
+    /* ── LEYENDA ── */
+    .leyenda {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 24px;
+      font-size: 11.5px;
+      color: #666;
+    }
+    .leyenda span { display: flex; align-items: center; gap: 6px; }
+
+    /* ── TABLA COSTOS ── */
+    .tabla-costos {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 28px;
+      font-size: 13px;
+    }
+    .tabla-costos thead tr { background: #f8f9fa; border-bottom: 2px solid #dee2e6; }
+    .tabla-costos thead th {
+      padding: 10px 16px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: #666;
+    }
+    .tabla-costos thead th.right { text-align: right; }
+    .tabla-costos tbody tr { border-bottom: 1px solid #f0f0f0; }
+    .tabla-costos td { padding: 11px 16px; vertical-align: middle; }
+    .tabla-costos td.right { text-align: right; font-weight: 600; }
+    .tabla-costos .subtotal-row td { border-top: 1px solid #dee2e6; color: #666; }
+    .tabla-costos .iva-row td { color: #666; }
+    .tabla-costos .total-row {
+      background: #1B4D2E;
+      color: white;
+    }
+    .tabla-costos .total-row td { font-size: 15px; font-weight: 700; padding: 13px 16px; }
+    .tabla-costos .total-row td.right { text-align: right; }
+    .tag-incluido {
+      background: #d4edda;
+      color: #155724;
+      border-radius: 12px;
+      padding: 2px 10px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    /* ── FORMA DE PAGO ── */
+    .pago-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .pago-card {
+      border: 2px solid #1B4D2E;
+      border-radius: 10px;
+      padding: 18px 20px;
+      text-align: center;
+    }
+    .pago-pct {
+      font-size: 36px;
+      font-weight: 800;
+      color: #1B4D2E;
+      line-height: 1;
+    }
+    .pago-label {
+      font-size: 12px;
+      color: #666;
+      margin: 4px 0 8px;
+    }
+    .pago-monto {
+      font-size: 18px;
+      font-weight: 700;
+      color: #C9A84C;
+    }
+
+    /* ── TÉRMINOS ── */
+    .terminos-box {
+      background: #f8f9fa;
+      border: 1px solid #e9ecef;
+      border-radius: 8px;
+      padding: 18px 20px;
+      margin-bottom: 32px;
+    }
+    .terminos-box ul {
+      list-style: none;
+      padding: 0;
+    }
+    .terminos-box ul li {
+      padding: 5px 0 5px 18px;
+      position: relative;
+      font-size: 12px;
+      color: #444;
+      line-height: 1.6;
+      border-bottom: 1px dashed #e9ecef;
+    }
+    .terminos-box ul li:last-child { border-bottom: none; }
+    .terminos-box ul li::before {
+      content: '·';
+      position: absolute;
+      left: 4px;
+      color: #1B4D2E;
+      font-weight: 900;
+      font-size: 18px;
+      top: 2px;
+    }
+
+    /* ── FIRMAS ── */
+    .firmas-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      padding: 0 20px;
+    }
+    .firma-block { text-align: center; }
+    .firma-line {
+      border-top: 1.5px solid #333;
+      padding-top: 8px;
+      margin-top: 48px;
+    }
+    .firma-empresa { font-weight: 700; font-size: 13px; color: #1B4D2E; }
+    .firma-sub { font-size: 11px; color: #888; margin-top: 2px; }
+
+    /* ── FOOTER DOC ── */
+    .doc-footer {
+      background: #1B4D2E;
+      padding: 12px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .doc-footer span { color: rgba(255,255,255,0.6); font-size: 10.5px; }
+    .doc-footer strong { color: #C9A84C; }
+
+    /* ── PRINT ── */
+    @media print {
+      body { background: white; font-size: 12px; }
+      .ctrl-bar { display: none !important; }
+      .page {
+        width: 100%;
+        margin: 0;
+        box-shadow: none;
+        border-radius: 0;
+      }
+      @page { margin: 12mm; size: A4; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Barra de control -->
+<div class="ctrl-bar no-print">
+  <span>&#127931; MAVA COMPANY — Proforma PRF-001-2026</span>
+  <div class="btns">
+    <button class="btn-back" onclick="window.history.back()">&#8592; Volver</button>
+    <button class="btn-print" onclick="window.print()">&#128424; Imprimir / PDF</button>
+  </div>
+</div>
+
+<!-- DOCUMENTO -->
+<div class="page">
+
+  <!-- ══ ENCABEZADO ══ -->
+  <div class="doc-header">
+    <div class="brand-section">
+      <div class="brand-logo">MC</div>
+      <div>
+        <div class="brand-name">MAVA COMPANY</div>
+        <div class="brand-sub">Soluciones tecnológicas y sistemas administrativos</div>
+        <div class="brand-contact">
+          📍 Milagro, Guayas, Ecuador<br>
+          ✉️ mavacompany@gmail.com
+        </div>
+      </div>
+    </div>
+    <div class="doc-id-section">
+      <div class="doc-label">Proforma</div>
+      <div class="doc-number">No. PRF-001-2026</div>
+      <div class="doc-meta">
+        <strong>Fecha:</strong> 14 de mayo de 2026<br>
+        <strong>Validez:</strong> 30 días
+      </div>
+      <div class="validez-badge">⏳ Válida hasta el 13 de junio de 2026</div>
+    </div>
+  </div>
+
+  <!-- ══ INFO GRID ══ -->
+  <div class="info-grid">
+    <div class="info-cell">
+      <div class="info-label">Dirigido a</div>
+      <div class="info-name">Tenis Club de Milagro</div>
+      <div class="info-detail">Milagro, Guayas, Ecuador</div>
+      <div class="info-detail">Atención: Directorio / Administración</div>
+    </div>
+    <div class="info-cell">
+      <div class="info-label">Objeto del Servicio</div>
+      <div class="info-obj">
+        Desarrollo e implementación de un sistema contable y administrativo personalizado para la gestión integral del club deportivo.
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ CUERPO ══ -->
+  <div class="doc-body">
+
+    <!-- MÓDULOS -->
+    <div class="section-title">Módulos del Sistema</div>
+
+    <table class="table-modulos">
+      <thead>
+        <tr>
+          <th class="center" style="width:44px">#</th>
+          <th style="width:200px">Módulo</th>
+          <th class="center" style="width:72px">Tipo</th>
+          <th>Descripción</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="num">01</td>
+          <td><span class="modulo-nombre">Registro de ventas y compras</span></td>
+          <td style="text-align:center"><span class="badge-base">base</span></td>
+          <td><span class="modulo-desc">Registro diario de facturas de venta, compra y notas de crédito. Control de secuencias y documentos.</span></td>
+        </tr>
+        <tr>
+          <td class="num">02</td>
+          <td><span class="modulo-nombre">Reportería</span></td>
+          <td style="text-align:center"><span class="badge-base">base</span></td>
+          <td><span class="modulo-desc">Reportes exportables: diario general, libro mayor, auxiliares de cuentas y listados filtrados.</span></td>
+        </tr>
+        <tr>
+          <td class="num">03</td>
+          <td><span class="modulo-nombre">Balances y estados financieros</span></td>
+          <td style="text-align:center"><span class="badge-base">base</span></td>
+          <td><span class="modulo-desc">Balance general, estado de resultados, balance de comprobación y flujo de efectivo.</span></td>
+        </tr>
+        <tr>
+          <td class="num">04</td>
+          <td><span class="modulo-nombre">Generación de proformas</span></td>
+          <td style="text-align:center"><span class="badge-base">base</span></td>
+          <td><span class="modulo-desc">Emisión de cotizaciones y proformas para patrocinadores, proveedores y servicios del club.</span></td>
+        </tr>
+        <tr>
+          <td class="num">05</td>
+          <td><span class="modulo-nombre">Listado de socios activos</span></td>
+          <td style="text-align:center"><span class="badge-base">base</span></td>
+          <td><span class="modulo-desc">Directorio digital de socios: datos personales, categoría, estado de membresía y fechas clave.</span></td>
+        </tr>
+        <tr>
+          <td class="num">06</td>
+          <td><span class="modulo-nombre">Dashboard</span></td>
+          <td style="text-align:center"><span class="badge-base">base</span></td>
+          <td><span class="modulo-desc">Panel visual con KPIs: ingresos, egresos, socios al día, cuotas vencidas y tendencias del mes.</span></td>
+        </tr>
+        <tr style="background:#fafeff">
+          <td class="num">07</td>
+          <td><span class="modulo-nombre">Control de cuotas de socios</span></td>
+          <td style="text-align:center"><span class="badge-plus">plus</span></td>
+          <td><span class="modulo-desc">Facturación automática de cuotas, estado de cuenta individual y cálculo de mora por retraso.</span></td>
+        </tr>
+        <tr style="background:#fafeff">
+          <td class="num">08</td>
+          <td><span class="modulo-nombre">Cuentas por cobrar y pagar</span></td>
+          <td style="text-align:center"><span class="badge-plus">plus</span></td>
+          <td><span class="modulo-desc">Gestión de cartera con análisis de antigüedad (aging), alertas de vencimiento y seguimiento de saldos.</span></td>
+        </tr>
+        <tr style="background:#fafeff">
+          <td class="num">09</td>
+          <td><span class="modulo-nombre">Conciliación bancaria</span></td>
+          <td style="text-align:center"><span class="badge-plus">plus</span></td>
+          <td><span class="modulo-desc">Cruce de movimientos bancarios contra registros contables con identificación de diferencias.</span></td>
+        </tr>
+        <tr style="background:#fafeff">
+          <td class="num">10</td>
+          <td><span class="modulo-nombre">Control de inventario</span></td>
+          <td style="text-align:center"><span class="badge-plus">plus</span></td>
+          <td><span class="modulo-desc">Gestión de artículos para venta, control de stock mínimo y valoración de inventario del club.</span></td>
+        </tr>
+        <tr style="background:#fafeff">
+          <td class="num">11</td>
+          <td><span class="modulo-nombre">Nómina básica</span></td>
+          <td style="text-align:center"><span class="badge-plus">plus</span></td>
+          <td><span class="modulo-desc">Roles de pago del personal, décimos, utilidades y aportes al IESS según Código del Trabajo.</span></td>
+        </tr>
+        <tr style="background:#fafeff">
+          <td class="num">12</td>
+          <td><span class="modulo-nombre">Declaraciones SRI</span></td>
+          <td style="text-align:center"><span class="badge-plus">plus</span></td>
+          <td><span class="modulo-desc">Generación asistida de formularios de IVA, retenciones en la fuente y ATS desde el sistema.</span></td>
+        </tr>
+        <tr style="background:#fafeff">
+          <td class="num">13</td>
+          <td><span class="modulo-nombre">Gestión de torneos y eventos</span></td>
+          <td style="text-align:center"><span class="badge-plus">plus</span></td>
+          <td><span class="modulo-desc">Presupuesto, ingresos, egresos y estado de resultados (P&L) por torneo o evento especial.</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Leyenda -->
+    <div class="leyenda">
+      <span><span class="badge-base">base</span> Paquete inicial</span>
+      <span><span class="badge-plus">plus</span> Módulos adicionales recomendados</span>
+    </div>
+
+    <!-- DETALLE DE COSTOS -->
+    <div class="section-title">Detalle de Costos</div>
+
+    <table class="tabla-costos">
+      <thead>
+        <tr>
+          <th>Descripción</th>
+          <th class="right">Valor (USD)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+            <strong>Sistema contable completo — 13 módulos (base + plus)</strong><br>
+            <small style="color:#888">Desarrollo a medida · Plataforma web · Base de datos incluida</small>
+          </td>
+          <td class="right">$ 130.43</td>
+        </tr>
+        <tr>
+          <td>Implementación, configuración y capacitación</td>
+          <td class="right"><span class="tag-incluido">✔ Incluido</span></td>
+        </tr>
+        <tr class="subtotal-row">
+          <td>Subtotal</td>
+          <td class="right">$ 130.43</td>
+        </tr>
+        <tr class="iva-row">
+          <td>IVA 15%</td>
+          <td class="right">$ 19.57</td>
+        </tr>
+        <tr class="total-row">
+          <td><strong>TOTAL</strong></td>
+          <td class="right"><strong>$ 150.00</strong></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- FORMA DE PAGO -->
+    <div class="section-title">Forma de Pago</div>
+    <div class="pago-grid">
+      <div class="pago-card">
+        <div class="pago-pct">50%</div>
+        <div class="pago-label">Al iniciar el proyecto</div>
+        <div class="pago-monto">$ 75.00</div>
+      </div>
+      <div class="pago-card">
+        <div class="pago-pct">50%</div>
+        <div class="pago-label">A la entrega del sistema</div>
+        <div class="pago-monto">$ 75.00</div>
+      </div>
+    </div>
+
+    <!-- TÉRMINOS Y CONDICIONES -->
+    <div class="section-title">Términos y Condiciones</div>
+    <div class="terminos-box">
+      <ul>
+        <li>El sistema será entregado en un plazo de <strong>10 días hábiles</strong> desde la aprobación y el primer abono.</li>
+        <li>El sistema será desarrollado de manera <strong>EXCLUSIVA</strong> para el Tenis Club de Milagro, es decir, será creado únicamente para el club y no será replicado ni comercializado a terceros.</li>
+        <li>Implementación, configuración inicial y capacitación al personal están <strong>incluidas</strong> en el costo total.</li>
+        <li>Módulos no contemplados en esta proforma serán cotizados de forma separada mediante adenda.</li>
+        <li>Los precios están expresados en <strong>dólares americanos (USD)</strong> e incluyen IVA 15%.</li>
+        <li>La presente proforma tiene validez de <strong>30 días</strong> desde la fecha de emisión.</li>
+      </ul>
+    </div>
+
+    <!-- FIRMAS -->
+    <div class="firmas-grid">
+      <div class="firma-block">
+        <div class="firma-line">
+          <div class="firma-empresa">MAVA COMPANY</div>
+          <div class="firma-sub">mavacompany@gmail.com — Proveedor del servicio</div>
+        </div>
+      </div>
+      <div class="firma-block">
+        <div class="firma-line">
+          <div class="firma-empresa">Tenis Club de Milagro</div>
+          <div class="firma-sub">Nombre, cargo y sello del club</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /doc-body -->
+
+  <!-- ══ FOOTER DOC ══ -->
+  <div class="doc-footer">
+    <span>Generado por <strong>MAVA COMPANY</strong> · Sistema Contable Tenis Club</span>
+    <span>Proforma válida 30 días · <strong>PRF-001-2026</strong></span>
+  </div>
+
+</div><!-- /page -->
+
+</body>
+</html>

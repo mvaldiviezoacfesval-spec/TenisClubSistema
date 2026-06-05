@@ -209,6 +209,8 @@ def init_db():
         estado TEXT DEFAULT 'Pendiente',
         referencia TEXT
     )''')
+    _add_column_if_missing(c, 'cuentas_pagar', 'referencia_tipo', 'TEXT')
+    _add_column_if_missing(c, 'cuentas_pagar', 'referencia_id', 'INTEGER')
 
     # --- MOVIMIENTOS BANCARIOS ---
     c.execute('''CREATE TABLE IF NOT EXISTS movimientos_bancarios (
@@ -368,6 +370,11 @@ def init_db():
         conn.commit()
 
     conn.close()
+
+def _add_column_if_missing(c, table, column, definition):
+    cols = [row[1] for row in c.execute(f"PRAGMA table_info({table})").fetchall()]
+    if column not in cols:
+        c.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
 def _insertar_plan_cuentas(c):
     cuentas = [

@@ -14,6 +14,10 @@ def create_app():
 def inject_now():
     return {'now': datetime.now()}
 
+@app.route('/proforma-oficial')
+def proforma_oficial():
+    return app.send_static_file('proforma_prf001.html')
+
 @app.route('/health')
 def health():
     return jsonify({'status': 'ok'})
@@ -285,8 +289,20 @@ def compra_nueva():
                     conn.execute('''INSERT INTO factura_compra_items
                         (factura_id,descripcion,cantidad,precio_unitario,subtotal)
                         VALUES(?,?,?,?,?)''', (fid, d, float(c), float(p), float(c)*float(p)))
+            fecha_vencimiento = request.form.get('fecha_vencimiento') or request.form['fecha']
+            conn.execute('''INSERT INTO cuentas_pagar
+                (numero,fecha_emision,fecha_vencimiento,proveedor_nombre,concepto,
+                 monto_original,monto_pagado,saldo,estado,referencia,referencia_tipo,referencia_id)
+                VALUES(?,?,?,?,?,?,0,?,?,?,?,?)''', (
+                sig_numero('cuentas_pagar','numero','CXP'),
+                request.form['fecha'], fecha_vencimiento,
+                request.form['proveedor_nombre'],
+                f"Factura de compra {request.form['numero']}",
+                total, total, 'Pendiente',
+                request.form['numero'], 'factura_compra', fid
+            ))
             conn.commit()
-            flash('Factura de compra registrada.', 'success')
+            flash('Factura de compra registrada y cargada automaticamente en cuentas por pagar.', 'success')
             return redirect(url_for('compras'))
         except Exception as e:
             flash(f'Error: {e}', 'danger')
@@ -438,12 +454,21 @@ def cxc_abonar(id):
 
 @app.route('/cxp')
 def cxp():
+    estado = request.args.get('estado','')
+    mes = request.args.get('mes','')
     conn = get_db()
-    cuentas = conn.execute("SELECT * FROM cuentas_pagar ORDER BY fecha_vencimiento ASC").fetchall()
-    total_pend = conn.execute("SELECT COALESCE(SUM(saldo),0) FROM cuentas_pagar WHERE estado='Pendiente'").fetchone()[0]
-    vencidas = conn.execute("SELECT COALESCE(SUM(saldo),0) FROM cuentas_pagar WHERE estado='Pendiente' AND fecha_vencimiento < ?", (hoy(),)).fetchone()[0]
+    sql = "SELECT * FROM cuentas_pagar WHERE 1=1"
+    params = []
+    if estado:
+        sql += " AND estado=?"; params.append(estado)
+    if mes:
+        sql += " AND fecha_vencimiento LIKE ?"; params.append(f"{mes}%")
+    sql += " ORDER BY fecha_vencimiento ASC"
+    cuentas = conn.execute(sql, params).fetchall()
+    total_pend = conn.execute("SELECT COALESCE(SUM(saldo),0) FROM cuentas_pagar WHERE estado!='Pagada'").fetchone()[0]
+    vencidas = conn.execute("SELECT COALESCE(SUM(saldo),0) FROM cuentas_pagar WHERE estado!='Pagada' AND fecha_vencimiento < ?", (hoy(),)).fetchone()[0]
     conn.close()
-    return render_template('cxp/index.html', cuentas=cuentas, total_pend=total_pend, vencidas=vencidas, hoy=hoy())
+    return render_template('cxp/index.html', cuentas=cuentas, total_pend=total_pend, vencidas=vencidas, hoy=hoy(), estado=estado, mes=mes)
 
 @app.route('/cxp/nueva', methods=['GET','POST'])
 def cxp_nueva():
@@ -479,8 +504,16 @@ def cxp_pagar(id):
     estado = 'Pagada' if nuevo_saldo <= 0 else 'Parcial'
     conn.execute("UPDATE cuentas_pagar SET monto_pagado=?, saldo=?, estado=? WHERE id=?",
                  (nuevo_pagado, max(nuevo_saldo,0), estado, id))
+    conn.execute('''INSERT INTO movimientos_bancarios
+        (cuenta_bancaria,fecha,descripcion,tipo,monto,saldo_banco,referencia,conciliado)
+        VALUES(?,?,?,?,?,?,?,0)''', (
+        request.form.get('cuenta_bancaria') or 'Banco principal',
+        request.form.get('fecha_pago') or hoy(),
+        f"Pago CxP {cuenta['numero']} - {cuenta['proveedor_nombre']}",
+        'Egreso', pago, None, cuenta['numero']
+    ))
     conn.commit(); conn.close()
-    flash('Pago registrado.', 'success')
+    flash('Pago registrado y enviado a conciliacion bancaria como egreso.', 'success')
     return redirect(url_for('cxp'))
 
 # ─────────────────────────────────────────────
@@ -488,11 +521,16 @@ def cxp_pagar(id):
 # ─────────────────────────────────────────────
 @app.route('/bancaria')
 def bancaria():
+    mes = request.args.get('mes') or datetime.now().strftime('%Y-%m')
     conn = get_db()
-    movimientos = conn.execute("SELECT * FROM movimientos_bancarios ORDER BY fecha DESC").fetchall()
-    pendientes = conn.execute("SELECT COUNT(*) FROM movimientos_bancarios WHERE conciliado=0").fetchone()[0]
+    movimientos = conn.execute("SELECT * FROM movimientos_bancarios WHERE fecha LIKE ? ORDER BY fecha DESC", (f"{mes}%",)).fetchall()
+    pendientes = conn.execute("SELECT COUNT(*) FROM movimientos_bancarios WHERE conciliado=0 AND fecha LIKE ?", (f"{mes}%",)).fetchone()[0]
+    ingresos = conn.execute("SELECT COALESCE(SUM(monto),0) FROM movimientos_bancarios WHERE tipo='Ingreso' AND fecha LIKE ?", (f"{mes}%",)).fetchone()[0]
+    egresos = conn.execute("SELECT COALESCE(SUM(monto),0) FROM movimientos_bancarios WHERE tipo='Egreso' AND fecha LIKE ?", (f"{mes}%",)).fetchone()[0]
+    conciliados = conn.execute("SELECT COUNT(*) FROM movimientos_bancarios WHERE conciliado=1 AND fecha LIKE ?", (f"{mes}%",)).fetchone()[0]
     conn.close()
-    return render_template('bancaria/index.html', movimientos=movimientos, pendientes=pendientes)
+    return render_template('bancaria/index.html', movimientos=movimientos, pendientes=pendientes,
+                           ingresos=ingresos, egresos=egresos, conciliados=conciliados, mes=mes)
 
 @app.route('/bancaria/nuevo', methods=['GET','POST'])
 def bancaria_nuevo():
@@ -509,7 +547,7 @@ def bancaria_nuevo():
             ))
             conn.commit()
             flash('Movimiento bancario registrado.', 'success')
-            return redirect(url_for('bancaria'))
+            return redirect(url_for('bancaria', mes=request.form['fecha'][:7]))
         except Exception as e:
             flash(f'Error: {e}', 'danger')
         finally:
@@ -522,7 +560,7 @@ def bancaria_conciliar(id):
     conn.execute("UPDATE movimientos_bancarios SET conciliado=1 WHERE id=?", (id,))
     conn.commit(); conn.close()
     flash('Movimiento conciliado.', 'success')
-    return redirect(url_for('bancaria'))
+    return redirect(url_for('bancaria', mes=request.form.get('mes') or datetime.now().strftime('%Y-%m')))
 
 # ─────────────────────────────────────────────
 #  INVENTARIO  (Módulo 10)

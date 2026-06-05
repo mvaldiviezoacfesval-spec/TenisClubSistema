@@ -6,6 +6,8 @@ __pycache__/
 .cloud-prod-test/
 .free-cloud-test/
 .pythonanywhere-test/
+.workflow-test/
+.routes-test/
 tenis_club.db
 instance/
 .env
