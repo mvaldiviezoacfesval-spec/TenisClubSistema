@@ -1,28 +1,30 @@
 # Sistema Contable Milagro Tenis Club en la nube
 
-Este proyecto ya esta preparado para publicarse como una aplicacion Flask con una base SQLite en disco persistente. Al quedar en la nube, todos los usuarios entran al mismo URL y ven los mismos datos sincronizados.
+Este proyecto ya esta preparado para publicarse como una aplicacion Flask con una base SQLite/libSQL en Turso. Al quedar en la nube, todos los usuarios entran al mismo URL y ven los mismos datos sincronizados.
 
 ## Como funciona la sincronizacion
 
 - La app usa una sola base de datos central.
 - En local usa `tenis_club.db`.
-- En nube usa la variable `DB_PATH`, por ejemplo `/data/tenis_club.db`.
-- El archivo `render.yaml` crea un disco persistente en Render montado en `/data`.
-- Mientras la app use ese disco persistente, los datos no dependen de la computadora donde se abra el sistema.
+- En nube usa Turso con `TURSO_DATABASE_URL` y `TURSO_AUTH_TOKEN`.
+- `DB_PATH=/tmp/tenis_club.db` es solo una replica temporal dentro de Render.
+- Los datos reales viven en Turso, no en el servidor local ni en el disco de Render.
 
 ## Publicar en Render
 
-1. Sube la carpeta `TenisClubSistema` a un repositorio de GitHub.
-2. En Render, crea un nuevo servicio usando `Blueprint`.
-3. Selecciona el repositorio.
-4. Render detectara `render.yaml`.
-5. Confirma la creacion del servicio.
-6. Cuando termine el despliegue, abre el URL publico que Render entrega.
+1. Crea una base gratis en Turso.
+2. Copia `TURSO_DATABASE_URL` y `TURSO_AUTH_TOKEN`.
+3. En Render, crea un nuevo servicio usando `Blueprint`.
+4. Selecciona el repositorio.
+5. Render detectara `render.yaml`.
+6. Cuando Render pida variables, pega `TURSO_DATABASE_URL` y `TURSO_AUTH_TOKEN`.
+7. Confirma la creacion del servicio.
+8. Cuando termine el despliegue, abre el URL publico que Render entrega.
 
 El blueprint configura:
 
-- `DB_PATH=/data/tenis_club.db`
-- disco persistente `tenis-club-data`
+- `DB_PATH=/tmp/tenis_club.db`
+- conexion a Turso mediante `TURSO_DATABASE_URL` y `TURSO_AUTH_TOKEN`
 - comando de inicio con Gunicorn
 - verificacion de salud en `/health`
 
@@ -43,9 +45,9 @@ Debe mostrar `200` en `/health`, `/`, `/socios`, `/ventas` y `/reportes`.
 
 ## Importante sobre los datos
 
-No uses el archivo local `tenis_club.db` para produccion. En Render los datos se guardan en `/data/tenis_club.db`, que esta conectado al disco persistente `tenis-club-data`.
+No uses el archivo local `tenis_club.db` para produccion. En Render el archivo de `/tmp` es temporal; la sincronizacion real se hace con Turso.
 
-Si el servicio se crea sin disco persistente, los datos se pueden perder al reiniciar o redesplegar. El archivo `render.yaml` ya incluye el disco; no lo elimines.
+Si no configuras `TURSO_DATABASE_URL` y `TURSO_AUTH_TOKEN`, los datos no quedaran sincronizados en nube.
 
 ## Ejecutar localmente
 
@@ -64,6 +66,8 @@ http://127.0.0.1:5000/
 
 ```text
 DB_PATH=/data/tenis_club.db
+TURSO_DATABASE_URL=libsql://...
+TURSO_AUTH_TOKEN=...
 SECRET_KEY=una-clave-segura
 PORT=5000
 FLASK_DEBUG=0
