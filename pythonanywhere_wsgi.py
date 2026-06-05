@@ -7,8 +7,9 @@ contenido en el archivo WSGI de la pestana Web.
 
 import os
 import sys
+import getpass
 
-USERNAME = "TU_USUARIO"
+USERNAME = getpass.getuser()
 PROJECT_HOME = f"/home/{USERNAME}/TenisClubSistema"
 
 if PROJECT_HOME not in sys.path:

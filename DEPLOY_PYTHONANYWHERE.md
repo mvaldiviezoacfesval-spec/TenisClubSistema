@@ -14,15 +14,10 @@ La base `tenis_club.db` queda guardada en tu carpeta de PythonAnywhere, asi que 
 2. Crea una cuenta gratis.
 3. Ve a la pestana **Consoles**.
 4. Abre una consola **Bash**.
-5. Ejecuta estos comandos:
+5. Ejecuta este unico comando:
 
 ```bash
-git clone https://github.com/mvaldiviezoacfesval-spec/TenisClubSistema.git
-cd TenisClubSistema
-python3.12 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-python -c "from database import init_db; init_db()"
+bash <(curl -s https://raw.githubusercontent.com/mvaldiviezoacfesval-spec/TenisClubSistema/main/setup_pythonanywhere.sh)
 ```
 
 6. Ve a la pestana **Web**.
@@ -44,10 +39,9 @@ Working directory: /home/TU_USUARIO/TenisClubSistema
 
 12. Abre el archivo WSGI.
 13. Borra su contenido.
-14. Pega el contenido de `pythonanywhere_wsgi.py`.
-15. Cambia `TU_USUARIO` por tu usuario real de PythonAnywhere.
-16. Guarda.
-17. Click en **Reload**.
+14. Pega el contenido de `pythonanywhere_wsgi.py` si el script no lo hizo automaticamente.
+15. Guarda.
+16. Click en **Reload**.
 
 ## Verificar
 
