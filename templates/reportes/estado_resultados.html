@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block title %}Estado de Resultados{% endblock %}
+{% block icon %}graph-up{% endblock %}
+{% block page_title %}Estado de Resultados{% endblock %}
+{% block content %}
+<div class="card mb-3"><div class="card-body"><form method="GET" class="row g-2"><div class="col-md-3"><input name="mes" type="month" value="{{ mes }}" class="form-control"></div><div class="col-auto"><button class="btn btn-primary">Filtrar</button></div><div class="col-auto"><button type="button" onclick="window.print()" class="btn btn-outline-secondary no-print"><i class="bi bi-printer"></i></button></div></form></div></div>
+<div class="card"><div class="card-body"><table class="table">
+  <tr><th colspan="2">Ingresos</th></tr><tr><td>Ventas</td><td class="text-end">${{ "%.2f"|format(ing_ventas) }}</td></tr><tr><td>Cuotas de socios</td><td class="text-end">${{ "%.2f"|format(ing_cuotas) }}</td></tr><tr><td>Torneos</td><td class="text-end">${{ "%.2f"|format(ing_torneos) }}</td></tr><tr class="summary-row"><td>Total ingresos</td><td class="text-end">${{ "%.2f"|format(total_ingresos) }}</td></tr>
+  <tr><th colspan="2">Gastos</th></tr><tr><td>Compras</td><td class="text-end">${{ "%.2f"|format(gasto_compras) }}</td></tr><tr><td>Nomina</td><td class="text-end">${{ "%.2f"|format(gasto_nomina) }}</td></tr><tr><td>Torneos</td><td class="text-end">${{ "%.2f"|format(gasto_torneos) }}</td></tr><tr class="summary-row"><td>Total gastos</td><td class="text-end">${{ "%.2f"|format(total_gastos) }}</td></tr>
+  <tr class="summary-row"><td>Utilidad / perdida</td><td class="text-end">${{ "%.2f"|format(utilidad) }}</td></tr>
+</table></div></div>
+{% endblock %}

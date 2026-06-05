@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block title %}Nuevo Empleado{% endblock %}
+{% block icon %}person-plus{% endblock %}
+{% block page_title %}Nuevo Empleado{% endblock %}
+{% block content %}
+<div class="card"><div class="card-body"><form method="POST" class="row g-3">
+  <div class="col-md-3"><label class="form-label">Nombres</label><input name="nombres" class="form-control" required></div>
+  <div class="col-md-3"><label class="form-label">Apellidos</label><input name="apellidos" class="form-control" required></div>
+  <div class="col-md-2"><label class="form-label">Cedula</label><input name="cedula" class="form-control" required></div>
+  <div class="col-md-2"><label class="form-label">Cargo</label><input name="cargo" class="form-control" required></div>
+  <div class="col-md-2"><label class="form-label">Departamento</label><input name="departamento" class="form-control"></div>
+  <div class="col-md-3"><label class="form-label">Salario base</label><input name="salario_base" type="number" step="0.01" class="form-control" required></div>
+  <div class="col-md-3"><label class="form-label">Fecha ingreso</label><input name="fecha_ingreso" type="date" class="form-control" required></div>
+  <div class="col-md-3"><label class="form-label">Contrato</label><select name="tipo_contrato" class="form-select"><option>Indefinido</option><option>Temporal</option><option>Servicios profesionales</option></select></div>
+  <div class="col-md-3"><label class="form-label">Cuenta bancaria</label><input name="cuenta_bancaria" class="form-control"></div>
+  <div class="col-md-6"><label class="form-label">Email</label><input name="email" type="email" class="form-control"></div>
+  <div class="col-md-6"><label class="form-label">Telefono</label><input name="telefono" class="form-control"></div>
+  <div class="col-12"><button class="btn btn-primary">Guardar</button><a href="{{ url_for('nomina') }}" class="btn btn-outline-secondary ms-2">Cancelar</a></div>
+</form></div></div>
+{% endblock %}

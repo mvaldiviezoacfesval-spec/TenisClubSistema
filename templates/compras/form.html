@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+{% block title %}Registrar Compra{% endblock %}
+{% block icon %}bag-check{% endblock %}
+{% block page_title %}Registrar Factura de Compra{% endblock %}
+{% block content %}
+<div class="module-header">
+  <h2><i class="bi bi-bag-check me-2"></i>Nueva Factura de Compra</h2>
+  <a href="{{ url_for('compras') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Volver</a>
+</div>
+<div class="card">
+  <div class="card-body">
+    <form method="POST" id="frmCompra">
+      <div class="row g-3 mb-3">
+        <div class="col-md-3">
+          <label class="form-label">N° Factura Proveedor *</label>
+          <input type="text" name="numero" class="form-control" required placeholder="Ej: 001-001-000123">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Fecha *</label>
+          <input type="date" name="fecha" class="form-control" required value="{{ hoy }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Proveedor *</label>
+          <input type="text" name="proveedor_nombre" class="form-control" required placeholder="Nombre o razón social">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">IVA %</label>
+          <select name="iva_pct" class="form-select" id="ivaPct" onchange="calcularTotales()">
+            <option value="15">15%</option>
+            <option value="0">0%</option>
+            <option value="5">5%</option>
+          </select>
+        </div>
+      </div>
+      <div class="card mb-3" style="border:1px solid #dee2e6">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span><i class="bi bi-list-ul me-1"></i>Ítems</span>
+          <button type="button" class="btn btn-sm btn-outline-primary" onclick="agregarItem()"><i class="bi bi-plus me-1"></i>Agregar</button>
+        </div>
+        <div class="card-body">
+          <div id="items-container">
+            <div class="row g-2 align-items-end item-row mb-2">
+              <div class="col-md-6"><label class="form-label">Descripción</label>
+                <input type="text" name="item_desc[]" class="form-control" required></div>
+              <div class="col-md-2"><label class="form-label">Cantidad</label>
+                <input type="number" name="item_cant[]" class="form-control item-cant" step="0.01" value="1" min="0.01" required onchange="calcularTotales()"></div>
+              <div class="col-md-2"><label class="form-label">Precio Unit.</label>
+                <input type="number" name="item_precio[]" class="form-control item-precio" step="0.01" value="0" onchange="calcularTotales()"></div>
+              <div class="col-md-1"><label class="form-label">Subtotal</label>
+                <input type="text" class="form-control item-sub" readonly style="background:#f8f9fa" value="0.00"></div>
+              <div class="col-md-1 d-flex align-items-end">
+                <button type="button" class="btn btn-sm btn-outline-danger w-100" onclick="eliminarItem(this)"><i class="bi bi-trash"></i></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="row justify-content-end">
+        <div class="col-md-4">
+          <table class="table table-sm table-borderless">
+            <tr><td>Subtotal:</td><td class="text-end"><strong id="lblSubtotal">$0.00</strong></td></tr>
+            <tr><td>IVA:</td><td class="text-end" id="lblIva">$0.00</td></tr>
+            <tr class="summary-row"><td>TOTAL:</td><td class="text-end fs-5"><strong id="lblTotal">$0.00</strong></td></tr>
+          </table>
+        </div>
+      </div>
+      <div class="col-12 mt-2">
+        <label class="form-label">Observaciones</label>
+        <input type="text" name="observaciones" class="form-control">
+      </div>
+      <div class="mt-4 d-flex gap-2">
+        <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Guardar</button>
+        <a href="{{ url_for('compras') }}" class="btn btn-outline-secondary">Cancelar</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function calcularTotales() {
+  let subtotal = 0;
+  document.querySelectorAll('.item-row').forEach(row => {
+    const cant = parseFloat(row.querySelector('.item-cant').value)||0;
+    const precio = parseFloat(row.querySelector('.item-precio').value)||0;
+    const sub = cant*precio; row.querySelector('.item-sub').value=sub.toFixed(2); subtotal+=sub;
+  });
+  const ivaPct = parseFloat(document.getElementById('ivaPct').value)||0;
+  const iva = subtotal*ivaPct/100;
+  document.getElementById('lblSubtotal').textContent='$'+subtotal.toFixed(2);
+  document.getElementById('lblIva').textContent='$'+iva.toFixed(2);
+  document.getElementById('lblTotal').textContent='$'+(subtotal+iva).toFixed(2);
+}
+function agregarItem() {
+  const tpl = document.querySelector('.item-row').cloneNode(true);
+  tpl.querySelectorAll('input[type!=button]').forEach(i=>{ i.value=i.name.includes('cant')?'1':i.name.includes('precio')?'0':''; });
+  tpl.querySelector('.item-sub').value='0.00';
+  document.getElementById('items-container').appendChild(tpl);
+  tpl.querySelectorAll('.item-cant,.item-precio').forEach(i=>i.addEventListener('input',calcularTotales));
+}
+function eliminarItem(btn) {
+  if(document.querySelectorAll('.item-row').length>1){btn.closest('.item-row').remove();calcularTotales();}
+}
+document.querySelectorAll('.item-cant,.item-precio').forEach(i=>i.addEventListener('input',calcularTotales));
+</script>
+{% endblock %}

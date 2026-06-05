@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block title %}Facturas de Compra{% endblock %}
+{% block icon %}bag-check{% endblock %}
+{% block page_title %}Facturas de Compra{% endblock %}
+{% block content %}
+<div class="module-header">
+  <h2><i class="bi bi-bag-check me-2"></i>Facturas de Compra</h2>
+  <a href="{{ url_for('compra_nueva') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Registrar Compra</a>
+</div>
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover">
+      <thead><tr><th>N° Factura</th><th>Fecha</th><th>Proveedor</th><th>Subtotal</th><th>IVA</th><th>Total</th><th>Estado</th></tr></thead>
+      <tbody>
+        {% for f in facturas %}
+        <tr>
+          <td><strong>{{ f.numero }}</strong></td>
+          <td>{{ f.fecha }}</td>
+          <td>{{ f.proveedor_nombre }}</td>
+          <td>${{ "%.2f"|format(f.subtotal) }}</td>
+          <td>${{ "%.2f"|format(f.iva) }}</td>
+          <td><strong>${{ "%.2f"|format(f.total) }}</strong></td>
+          <td><span class="badge-estado badge-activo">{{ f.estado }}</span></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="text-center text-muted py-4">Sin facturas de compra</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

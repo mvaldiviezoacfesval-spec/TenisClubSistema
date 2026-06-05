@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% block title %}Socio — {{ socio.nombres }}{% endblock %}
+{% block icon %}person{% endblock %}
+{% block page_title %}Detalle de Socio{% endblock %}
+{% block content %}
+<div class="module-header">
+  <h2><i class="bi bi-person me-2"></i>{{ socio.apellidos }}, {{ socio.nombres }}</h2>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('socio_editar', id=socio.id) }}" class="btn btn-primary"><i class="bi bi-pencil me-1"></i>Editar</a>
+    <a href="{{ url_for('socios') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Volver</a>
+  </div>
+</div>
+<div class="row g-3">
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-person-badge me-1"></i>Datos Personales</div>
+      <div class="card-body">
+        <table class="table table-sm table-borderless">
+          <tr><td class="text-muted" style="width:45%">Código</td><td><code>{{ socio.codigo }}</code></td></tr>
+          <tr><td class="text-muted">Cédula</td><td>{{ socio.cedula }}</td></tr>
+          <tr><td class="text-muted">Email</td><td>{{ socio.email }}</td></tr>
+          <tr><td class="text-muted">Teléfono</td><td>{{ socio.telefono }}</td></tr>
+          <tr><td class="text-muted">Dirección</td><td>{{ socio.direccion }}</td></tr>
+          <tr><td class="text-muted">Categoría</td><td>{{ socio.categoria }}</td></tr>
+          <tr><td class="text-muted">F. Ingreso</td><td>{{ socio.fecha_ingreso }}</td></tr>
+          <tr><td class="text-muted">F. Nacimiento</td><td>{{ socio.fecha_nacimiento }}</td></tr>
+          <tr><td class="text-muted">Cuota</td><td><strong>${{ "%.2f"|format(socio.cuota_mensual) }}</strong></td></tr>
+          <tr><td class="text-muted">Estado</td><td>
+            <span class="badge-estado badge-{% if socio.estado=='Activo' %}activo{% else %}anulado{% endif %}">{{ socio.estado }}</span>
+          </td></tr>
+        </table>
+        {% if socio.observaciones %}
+        <hr><small class="text-muted">{{ socio.observaciones }}</small>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-8">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-calendar-check me-1"></i>Historial de Cuotas</span>
+        <a href="{{ url_for('cuotas_generar') }}" class="btn btn-sm btn-primary no-print"><i class="bi bi-plus me-1"></i>Generar Cuotas</a>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover">
+          <thead><tr><th>Período</th><th>Vencimiento</th><th>Monto</th><th>Mora</th><th>Total</th><th>Estado</th><th>Pago</th></tr></thead>
+          <tbody>
+            {% for c in cuotas %}
+            <tr>
+              <td>{{ c.periodo }}</td>
+              <td>{{ c.fecha_vencimiento }}</td>
+              <td>${{ "%.2f"|format(c.monto) }}</td>
+              <td class="{% if c.mora > 0 %}text-danger{% endif %}">${{ "%.2f"|format(c.mora) }}</td>
+              <td><strong>${{ "%.2f"|format(c.total) }}</strong></td>
+              <td>
+                <span class="badge-estado badge-{% if c.estado=='Pagada' %}pagado{% elif c.estado=='Pendiente' %}pendiente{% else %}anulado{% endif %}">
+                  {{ c.estado }}
+                </span>
+              </td>
+              <td>
+                {% if c.estado == 'Pendiente' %}
+                <form method="POST" action="{{ url_for('cuota_pagar', id=c.id) }}" class="d-inline no-print">
+                  <button type="submit" class="btn btn-sm btn-success">Pagar</button>
+                </form>
+                {% else %}
+                <small class="text-muted">{{ c.fecha_pago }}</small>
+                {% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="text-center text-muted py-3">Sin cuotas registradas</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

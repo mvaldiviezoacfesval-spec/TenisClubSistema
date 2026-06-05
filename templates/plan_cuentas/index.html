@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block title %}Plan de Cuentas{% endblock %}
+{% block icon %}diagram-3{% endblock %}
+{% block page_title %}Plan de Cuentas{% endblock %}
+{% block content %}
+<div class="module-header">
+  <h2><i class="bi bi-diagram-3 me-2"></i>Plan de Cuentas</h2>
+  <a href="{{ url_for('cuenta_nueva') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Nueva Cuenta</a>
+</div>
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover">
+      <thead><tr><th>Código</th><th>Nombre</th><th>Tipo</th><th>Naturaleza</th><th>Nivel</th></tr></thead>
+      <tbody>
+        {% for c in cuentas %}
+        <tr class="{% if c.nivel == 1 %}fw-bold{% elif c.nivel == 2 %}text-secondary{% endif %}">
+          <td><code style="margin-left:{{ (c.nivel-1)*12 }}px">{{ c.codigo }}</code></td>
+          <td style="padding-left:{{ (c.nivel-1)*14 + 8 }}px">{{ c.nombre }}</td>
+          <td>
+            <span class="badge-estado badge-{% if c.tipo=='Activo' %}activo{% elif c.tipo=='Ingreso' %}pagado{% elif c.tipo=='Gasto' %}vencido{% else %}pendiente{% endif %}">
+              {{ c.tipo }}
+            </span>
+          </td>
+          <td>{{ c.naturaleza }}</td>
+          <td>{{ c.nivel }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

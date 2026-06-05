@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block title %}Nuevo Torneo{% endblock %}
+{% block icon %}trophy{% endblock %}
+{% block page_title %}Nuevo Torneo o Evento{% endblock %}
+{% block content %}
+<div class="card"><div class="card-body"><form method="POST" class="row g-3">
+  <div class="col-md-5"><label class="form-label">Nombre</label><input name="nombre" class="form-control" required></div>
+  <div class="col-md-2"><label class="form-label">Tipo</label><select name="tipo" class="form-select"><option>Torneo</option><option>Evento</option><option>Clinica</option></select></div>
+  <div class="col-md-2"><label class="form-label">Inicio</label><input name="fecha_inicio" type="date" value="{{ hoy }}" class="form-control" required></div>
+  <div class="col-md-2"><label class="form-label">Fin</label><input name="fecha_fin" type="date" value="{{ hoy }}" class="form-control" required></div>
+  <div class="col-md-1"><label class="form-label">Presup.</label><input name="presupuesto" type="number" step="0.01" value="0" class="form-control"></div>
+  <div class="col-md-3"><label class="form-label">Estado</label><select name="estado" class="form-select"><option>Planificado</option><option>En curso</option><option>Cerrado</option></select></div>
+  <div class="col-md-9"><label class="form-label">Descripcion</label><input name="descripcion" class="form-control"></div>
+  <div class="col-12"><button class="btn btn-primary">Guardar</button><a href="{{ url_for('torneos') }}" class="btn btn-outline-secondary ms-2">Cancelar</a></div>
+</form></div></div>
+{% endblock %}

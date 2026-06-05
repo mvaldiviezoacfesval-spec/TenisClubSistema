@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block title %}Conciliacion Bancaria{% endblock %}
+{% block icon %}bank{% endblock %}
+{% block page_title %}Conciliacion Bancaria{% endblock %}
+{% block content %}
+<div class="module-header">
+  <h2><i class="bi bi-bank me-2"></i>Movimientos bancarios</h2>
+  <a href="{{ url_for('bancaria_nuevo') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Nuevo movimiento</a>
+</div>
+<div class="kpi-card warning"><div class="kpi-icon"><i class="bi bi-link-45deg"></i></div><div class="kpi-data"><h3>{{ pendientes }}</h3><p>Movimientos pendientes de conciliar</p></div></div>
+<div class="card">
+  <div class="card-header"><i class="bi bi-table me-1"></i>Banco</div>
+  <div class="table-responsive">
+    <table class="table table-hover">
+      <thead><tr><th>Fecha</th><th>Cuenta</th><th>Descripcion</th><th>Tipo</th><th>Monto</th><th>Saldo banco</th><th>Referencia</th><th>Estado</th><th></th></tr></thead>
+      <tbody>
+      {% for m in movimientos %}
+        <tr>
+          <td>{{ m.fecha }}</td><td>{{ m.cuenta_bancaria }}</td><td>{{ m.descripcion }}</td><td>{{ m.tipo }}</td>
+          <td><strong>${{ "%.2f"|format(m.monto) }}</strong></td><td>${{ "%.2f"|format(m.saldo_banco or 0) }}</td><td>{{ m.referencia }}</td>
+          <td><span class="badge-estado badge-{% if m.conciliado %}pagado{% else %}pendiente{% endif %}">{{ 'Conciliado' if m.conciliado else 'Pendiente' }}</span></td>
+          <td>{% if not m.conciliado %}<form method="POST" action="{{ url_for('bancaria_conciliar', id=m.id) }}"><button class="btn btn-sm btn-success">Conciliar</button></form>{% endif %}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="9" class="text-center text-muted py-4">Sin movimientos bancarios.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

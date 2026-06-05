@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block title %}Balance General{% endblock %}
+{% block icon %}clipboard-data{% endblock %}
+{% block page_title %}Balance General{% endblock %}
+{% block content %}
+<div class="card"><div class="card-header d-flex justify-content-between"><span>Al {{ fecha }}</span><button onclick="window.print()" class="btn btn-sm btn-outline-secondary no-print"><i class="bi bi-printer"></i></button></div><div class="card-body">
+  <div class="row g-3">
+    <div class="col-md-6"><h5>Activos</h5><table class="table"><tr><td>Caja/Bancos estimado</td><td class="text-end">${{ "%.2f"|format(caja) }}</td></tr><tr><td>Cuentas por cobrar</td><td class="text-end">${{ "%.2f"|format(cxc) }}</td></tr><tr><td>Inventario</td><td class="text-end">${{ "%.2f"|format(inventario_val) }}</td></tr><tr class="summary-row"><td>Total activos</td><td class="text-end">${{ "%.2f"|format(total_activos) }}</td></tr></table></div>
+    <div class="col-md-6"><h5>Pasivos y patrimonio</h5><table class="table"><tr><td>Cuentas por pagar</td><td class="text-end">${{ "%.2f"|format(cxp) }}</td></tr><tr class="summary-row"><td>Total pasivos</td><td class="text-end">${{ "%.2f"|format(total_pasivos) }}</td></tr><tr><td>Patrimonio</td><td class="text-end">${{ "%.2f"|format(patrimonio) }}</td></tr><tr class="summary-row"><td>Pasivo + patrimonio</td><td class="text-end">${{ "%.2f"|format(total_pasivos + patrimonio) }}</td></tr></table></div>
+  </div>
+</div></div>
+{% endblock %}

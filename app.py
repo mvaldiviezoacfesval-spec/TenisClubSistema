@@ -1,0 +1,940 @@
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file
+from datetime import datetime, date, timedelta
+from database import get_db, init_db
+import io, os
+
+app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY', 'TenisClubMilagro2026_SecretKey')
+
+def create_app():
+    init_db()
+    return app
+
+@app.context_processor
+def inject_now():
+    return {'now': datetime.now()}
+
+@app.route('/health')
+def health():
+    return jsonify({'status': 'ok'})
+
+# ─────────────────────────────────────────────
+#  HELPERS
+# ─────────────────────────────────────────────
+def hoy():
+    return date.today().isoformat()
+
+def sig_numero(tabla, campo, prefijo, anio=None):
+    conn = get_db()
+    anio = anio or datetime.now().year
+    patron = f"{prefijo}-{anio}-%"
+    row = conn.execute(f"SELECT {campo} FROM {tabla} WHERE {campo} LIKE ? ORDER BY {campo} DESC LIMIT 1", (patron,)).fetchone()
+    conn.close()
+    if row:
+        ultimo = int(row[0].split('-')[-1])
+        return f"{prefijo}-{anio}-{ultimo+1:04d}"
+    return f"{prefijo}-{anio}-0001"
+
+def calcular_mora(vencimiento, monto, tasa=0.03):
+    hoy_d = date.today()
+    venc = date.fromisoformat(vencimiento)
+    if hoy_d > venc:
+        dias = (hoy_d - venc).days
+        return round(monto * tasa * dias / 30, 2)
+    return 0.0
+
+# ─────────────────────────────────────────────
+#  DASHBOARD  (Módulo 06)
+# ─────────────────────────────────────────────
+@app.route('/')
+def dashboard():
+    conn = get_db()
+    mes = datetime.now().strftime('%Y-%m')
+    anio = datetime.now().year
+
+    total_socios = conn.execute("SELECT COUNT(*) FROM socios WHERE estado='Activo'").fetchone()[0]
+    socios_mora = conn.execute("SELECT COUNT(DISTINCT socio_id) FROM cuotas WHERE estado='Pendiente' AND fecha_vencimiento < ?", (hoy(),)).fetchone()[0]
+
+    ing_mes = conn.execute("SELECT COALESCE(SUM(total),0) FROM facturas_venta WHERE fecha LIKE ? AND estado!='Anulada'", (f"{mes}%",)).fetchone()[0]
+    ing_cuotas = conn.execute("SELECT COALESCE(SUM(total),0) FROM cuotas WHERE fecha_pago LIKE ? AND estado='Pagada'", (f"{mes}%",)).fetchone()[0]
+    total_ingresos = ing_mes + ing_cuotas
+
+    eg_mes = conn.execute("SELECT COALESCE(SUM(total),0) FROM facturas_compra WHERE fecha LIKE ?", (f"{mes}%",)).fetchone()[0]
+
+    cuotas_vencidas = conn.execute("SELECT COUNT(*) FROM cuotas WHERE estado='Pendiente' AND fecha_vencimiento < ?", (hoy(),)).fetchone()[0]
+    cxc_total = conn.execute("SELECT COALESCE(SUM(saldo),0) FROM cuentas_cobrar WHERE estado='Pendiente'").fetchone()[0]
+    cxp_total = conn.execute("SELECT COALESCE(SUM(saldo),0) FROM cuentas_pagar WHERE estado='Pendiente'").fetchone()[0]
+
+    stock_critico = conn.execute("SELECT COUNT(*) FROM inventario WHERE stock_actual <= stock_minimo AND estado='Activo'").fetchone()[0]
+
+    # Ingresos últimos 6 meses para gráfico
+    meses_labels, meses_ingresos, meses_egresos = [], [], []
+    for i in range(5, -1, -1):
+        d = date.today().replace(day=1) - timedelta(days=i*28)
+        m = d.strftime('%Y-%m')
+        label = d.strftime('%b %Y')
+        ing = conn.execute("SELECT COALESCE(SUM(total),0) FROM facturas_venta WHERE fecha LIKE ? AND estado!='Anulada'", (f"{m}%",)).fetchone()[0]
+        ing += conn.execute("SELECT COALESCE(SUM(total),0) FROM cuotas WHERE fecha_pago LIKE ? AND estado='Pagada'", (f"{m}%",)).fetchone()[0]
+        eg = conn.execute("SELECT COALESCE(SUM(total),0) FROM facturas_compra WHERE fecha LIKE ?", (f"{m}%",)).fetchone()[0]
+        meses_labels.append(label); meses_ingresos.append(round(ing,2)); meses_egresos.append(round(eg,2))
+
+    ultimas_facturas = conn.execute("SELECT * FROM facturas_venta ORDER BY created_at DESC LIMIT 5").fetchall()
+    ultimas_cuotas = conn.execute("""
+        SELECT c.*, s.nombres||' '||s.apellidos as socio_nombre
+        FROM cuotas c JOIN socios s ON c.socio_id=s.id
+        WHERE c.estado='Pendiente' ORDER BY c.fecha_vencimiento ASC LIMIT 5
+    """).fetchall()
+    conn.close()
+
+    return render_template('dashboard.html',
+        total_socios=total_socios, socios_mora=socios_mora,
+        total_ingresos=total_ingresos, eg_mes=eg_mes,
+        cuotas_vencidas=cuotas_vencidas, cxc_total=cxc_total,
+        cxp_total=cxp_total, stock_critico=stock_critico,
+        meses_labels=meses_labels, meses_ingresos=meses_ingresos,
+        meses_egresos=meses_egresos,
+        ultimas_facturas=ultimas_facturas, ultimas_cuotas=ultimas_cuotas
+    )
+
+# ─────────────────────────────────────────────
+#  SOCIOS  (Módulo 05)
+# ─────────────────────────────────────────────
+@app.route('/socios')
+def socios():
+    q = request.args.get('q', '')
+    estado = request.args.get('estado', '')
+    conn = get_db()
+    sql = "SELECT * FROM socios WHERE 1=1"
+    params = []
+    if q:
+        sql += " AND (nombres LIKE ? OR apellidos LIKE ? OR cedula LIKE ? OR codigo LIKE ?)"
+        params += [f'%{q}%']*4
+    if estado:
+        sql += " AND estado=?"
+        params.append(estado)
+    sql += " ORDER BY apellidos, nombres"
+    socios_list = conn.execute(sql, params).fetchall()
+    conn.close()
+    return render_template('socios/index.html', socios=socios_list, q=q, estado=estado)
+
+@app.route('/socios/nuevo', methods=['GET','POST'])
+def socio_nuevo():
+    if request.method == 'POST':
+        conn = get_db()
+        ultimo = conn.execute("SELECT codigo FROM socios ORDER BY id DESC LIMIT 1").fetchone()
+        if ultimo:
+            n = int(ultimo[0].replace('SOC-','')) + 1
+        else:
+            n = 1
+        codigo = f"SOC-{n:04d}"
+        try:
+            conn.execute('''INSERT INTO socios
+                (codigo,nombres,apellidos,cedula,email,telefono,direccion,
+                 categoria,fecha_ingreso,fecha_nacimiento,cuota_mensual,observaciones)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?)''', (
+                codigo,
+                request.form['nombres'], request.form['apellidos'],
+                request.form['cedula'], request.form.get('email',''),
+                request.form.get('telefono',''), request.form.get('direccion',''),
+                request.form.get('categoria','Activo'), request.form['fecha_ingreso'],
+                request.form.get('fecha_nacimiento',''), float(request.form.get('cuota_mensual',30)),
+                request.form.get('observaciones','')
+            ))
+            conn.commit()
+            flash('Socio registrado correctamente.', 'success')
+            return redirect(url_for('socios'))
+        except Exception as e:
+            flash(f'Error: {e}', 'danger')
+        finally:
+            conn.close()
+    return render_template('socios/form.html', socio=None, accion='Nuevo')
+
+@app.route('/socios/<int:id>/editar', methods=['GET','POST'])
+def socio_editar(id):
+    conn = get_db()
+    socio = conn.execute("SELECT * FROM socios WHERE id=?", (id,)).fetchone()
+    if request.method == 'POST':
+        try:
+            conn.execute('''UPDATE socios SET nombres=?,apellidos=?,cedula=?,email=?,
+                telefono=?,direccion=?,categoria=?,fecha_ingreso=?,fecha_nacimiento=?,
+                cuota_mensual=?,estado=?,observaciones=? WHERE id=?''', (
+                request.form['nombres'], request.form['apellidos'],
+                request.form['cedula'], request.form.get('email',''),
+                request.form.get('telefono',''), request.form.get('direccion',''),
+                request.form.get('categoria','Activo'), request.form['fecha_ingreso'],
+                request.form.get('fecha_nacimiento',''), float(request.form.get('cuota_mensual',30)),
+                request.form.get('estado','Activo'), request.form.get('observaciones',''), id
+            ))
+            conn.commit()
+            flash('Socio actualizado.', 'success')
+            return redirect(url_for('socios'))
+        except Exception as e:
+            flash(f'Error: {e}', 'danger')
+    conn.close()
+    return render_template('socios/form.html', socio=socio, accion='Editar')
+
+@app.route('/socios/<int:id>')
+def socio_detalle(id):
+    conn = get_db()
+    socio = conn.execute("SELECT * FROM socios WHERE id=?", (id,)).fetchone()
+    cuotas = conn.execute("SELECT * FROM cuotas WHERE socio_id=? ORDER BY periodo DESC", (id,)).fetchall()
+    conn.close()
+    return render_template('socios/detalle.html', socio=socio, cuotas=cuotas)
+
+# ─────────────────────────────────────────────
+#  VENTAS  (Módulo 01)
+# ─────────────────────────────────────────────
+@app.route('/ventas')
+def ventas():
+    q = request.args.get('q','')
+    conn = get_db()
+    sql = "SELECT * FROM facturas_venta WHERE 1=1"
+    params = []
+    if q:
+        sql += " AND (numero LIKE ? OR cliente_nombre LIKE ?)"
+        params += [f'%{q}%']*2
+    sql += " ORDER BY fecha DESC, id DESC"
+    facturas = conn.execute(sql, params).fetchall()
+    conn.close()
+    return render_template('ventas/index.html', facturas=facturas, q=q)
+
+@app.route('/ventas/nueva', methods=['GET','POST'])
+def venta_nueva():
+    if request.method == 'POST':
+        conn = get_db()
+        numero = sig_numero('facturas_venta', 'numero', 'FV')
+        items_desc = request.form.getlist('item_desc[]')
+        items_cant = request.form.getlist('item_cant[]')
+        items_precio = request.form.getlist('item_precio[]')
+        subtotal = sum(float(c)*float(p) for c,p in zip(items_cant, items_precio))
+        iva_pct = float(request.form.get('iva_pct', 15))
+        iva = round(subtotal * iva_pct / 100, 2)
+        total = round(subtotal + iva, 2)
+        try:
+            cur = conn.execute('''INSERT INTO facturas_venta
+                (numero,fecha,cliente_nombre,subtotal,iva,total,estado,observaciones)
+                VALUES(?,?,?,?,?,?,?,?)''', (
+                numero, request.form['fecha'], request.form['cliente_nombre'],
+                round(subtotal,2), iva, total,
+                request.form.get('estado','Emitida'), request.form.get('observaciones','')
+            ))
+            fid = cur.lastrowid
+            for d,c,p in zip(items_desc, items_cant, items_precio):
+                if d.strip():
+                    conn.execute('''INSERT INTO factura_venta_items
+                        (factura_id,descripcion,cantidad,precio_unitario,subtotal)
+                        VALUES(?,?,?,?,?)''', (fid, d, float(c), float(p), float(c)*float(p)))
+            conn.commit()
+            flash(f'Factura {numero} registrada.', 'success')
+            return redirect(url_for('ventas'))
+        except Exception as e:
+            flash(f'Error: {e}', 'danger')
+        finally:
+            conn.close()
+    numero_preview = sig_numero('facturas_venta', 'numero', 'FV')
+    return render_template('ventas/form.html', numero=numero_preview, hoy=hoy())
+
+@app.route('/ventas/<int:id>')
+def venta_detalle(id):
+    conn = get_db()
+    factura = conn.execute("SELECT * FROM facturas_venta WHERE id=?", (id,)).fetchone()
+    items = conn.execute("SELECT * FROM factura_venta_items WHERE factura_id=?", (id,)).fetchall()
+    conn.close()
+    return render_template('ventas/detalle.html', factura=factura, items=items)
+
+@app.route('/ventas/<int:id>/anular', methods=['POST'])
+def venta_anular(id):
+    conn = get_db()
+    conn.execute("UPDATE facturas_venta SET estado='Anulada' WHERE id=?", (id,))
+    conn.commit(); conn.close()
+    flash('Factura anulada.', 'warning')
+    return redirect(url_for('ventas'))
+
+# ─────────────────────────────────────────────
+#  COMPRAS  (Módulo 01)
+# ─────────────────────────────────────────────
+@app.route('/compras')
+def compras():
+    conn = get_db()
+    facturas = conn.execute("SELECT * FROM facturas_compra ORDER BY fecha DESC").fetchall()
+    conn.close()
+    return render_template('compras/index.html', facturas=facturas)
+
+@app.route('/compras/nueva', methods=['GET','POST'])
+def compra_nueva():
+    if request.method == 'POST':
+        conn = get_db()
+        items_desc = request.form.getlist('item_desc[]')
+        items_cant = request.form.getlist('item_cant[]')
+        items_precio = request.form.getlist('item_precio[]')
+        subtotal = sum(float(c)*float(p) for c,p in zip(items_cant, items_precio))
+        iva_pct = float(request.form.get('iva_pct', 15))
+        iva = round(subtotal * iva_pct / 100, 2)
+        total = round(subtotal + iva, 2)
+        try:
+            cur = conn.execute('''INSERT INTO facturas_compra
+                (numero,fecha,proveedor_nombre,subtotal,iva,total,estado,observaciones)
+                VALUES(?,?,?,?,?,?,?,?)''', (
+                request.form['numero'], request.form['fecha'],
+                request.form['proveedor_nombre'], round(subtotal,2), iva, total,
+                'Registrada', request.form.get('observaciones','')
+            ))
+            fid = cur.lastrowid
+            for d,c,p in zip(items_desc, items_cant, items_precio):
+                if d.strip():
+                    conn.execute('''INSERT INTO factura_compra_items
+                        (factura_id,descripcion,cantidad,precio_unitario,subtotal)
+                        VALUES(?,?,?,?,?)''', (fid, d, float(c), float(p), float(c)*float(p)))
+            conn.commit()
+            flash('Factura de compra registrada.', 'success')
+            return redirect(url_for('compras'))
+        except Exception as e:
+            flash(f'Error: {e}', 'danger')
+        finally:
+            conn.close()
+    return render_template('compras/form.html', hoy=hoy())
+
+# ─────────────────────────────────────────────
+#  NOTAS DE CRÉDITO
+# ─────────────────────────────────────────────
+@app.route('/notas-credito')
+def notas_credito():
+    conn = get_db()
+    notas = conn.execute("SELECT * FROM notas_credito ORDER BY fecha DESC").fetchall()
+    conn.close()
+    return render_template('notas_credito/index.html', notas=notas)
+
+@app.route('/notas-credito/nueva', methods=['GET','POST'])
+def nota_credito_nueva():
+    if request.method == 'POST':
+        conn = get_db()
+        numero = sig_numero('notas_credito', 'numero', 'NC')
+        try:
+            conn.execute('''INSERT INTO notas_credito
+                (numero,fecha,factura_ref,cliente_nombre,motivo,total,tipo)
+                VALUES(?,?,?,?,?,?,?)''', (
+                numero, request.form['fecha'], request.form.get('factura_ref',''),
+                request.form['cliente_nombre'], request.form['motivo'],
+                float(request.form['total']), request.form.get('tipo','Venta')
+            ))
+            conn.commit()
+            flash(f'Nota de crédito {numero} emitida.', 'success')
+            return redirect(url_for('notas_credito'))
+        except Exception as e:
+            flash(f'Error: {e}', 'danger')
+        finally:
+            conn.close()
+    numero_preview = sig_numero('notas_credito', 'numero', 'NC')
+    return render_template('notas_credito/form.html', numero=numero_preview, hoy=hoy())
+
+# ─────────────────────────────────────────────
+#  CUOTAS DE SOCIOS  (Módulo 07)
+# ─────────────────────────────────────────────
+@app.route('/cuotas')
+def cuotas():
+    estado = request.args.get('estado','')
+    mes = request.args.get('mes','')
+    conn = get_db()
+    sql = """SELECT c.*, s.nombres||' '||s.apellidos as socio_nombre, s.codigo as socio_codigo
+             FROM cuotas c JOIN socios s ON c.socio_id=s.id WHERE 1=1"""
+    params = []
+    if estado:
+        sql += " AND c.estado=?"; params.append(estado)
+    if mes:
+        sql += " AND c.periodo=?"; params.append(mes)
+    sql += " ORDER BY c.fecha_vencimiento ASC"
+    cuotas_list = conn.execute(sql, params).fetchall()
+    conn.close()
+    return render_template('cuotas/index.html', cuotas=cuotas_list, estado=estado, mes=mes)
+
+@app.route('/cuotas/generar', methods=['GET','POST'])
+def cuotas_generar():
+    if request.method == 'POST':
+        periodo = request.form['periodo']
+        conn = get_db()
+        socios_activos = conn.execute("SELECT * FROM socios WHERE estado='Activo'").fetchall()
+        anio, mes_n = map(int, periodo.split('-'))
+        ultimo_dia = (date(anio, mes_n % 12 + 1, 1) - timedelta(days=1)) if mes_n < 12 else date(anio, 12, 31)
+        generadas = 0
+        for s in socios_activos:
+            existe = conn.execute("SELECT id FROM cuotas WHERE socio_id=? AND periodo=?", (s['id'], periodo)).fetchone()
+            if not existe:
+                conn.execute('''INSERT INTO cuotas
+                    (socio_id,periodo,fecha_vencimiento,monto,mora,total,estado)
+                    VALUES(?,?,?,?,0,?,?)''', (
+                    s['id'], periodo, ultimo_dia.isoformat(),
+                    s['cuota_mensual'], s['cuota_mensual'], 'Pendiente'
+                ))
+                generadas += 1
+        conn.commit(); conn.close()
+        flash(f'Se generaron {generadas} cuotas para {periodo}.', 'success')
+        return redirect(url_for('cuotas', mes=periodo))
+    return render_template('cuotas/generar.html', hoy=hoy())
+
+@app.route('/cuotas/<int:id>/pagar', methods=['POST'])
+def cuota_pagar(id):
+    conn = get_db()
+    cuota = conn.execute("SELECT * FROM cuotas WHERE id=?", (id,)).fetchone()
+    mora = calcular_mora(cuota['fecha_vencimiento'], cuota['monto'])
+    total = cuota['monto'] + mora
+    conn.execute('''UPDATE cuotas SET estado='Pagada', fecha_pago=?, metodo_pago=?,
+        mora=?, total=?, comprobante=? WHERE id=?''', (
+        hoy(), request.form.get('metodo','Efectivo'), mora, total,
+        request.form.get('comprobante',''), id
+    ))
+    conn.commit(); conn.close()
+    flash('Pago registrado correctamente.', 'success')
+    return redirect(url_for('cuotas'))
+
+# ─────────────────────────────────────────────
+#  CUENTAS POR COBRAR / PAGAR  (Módulo 08)
+# ─────────────────────────────────────────────
+@app.route('/cxc')
+def cxc():
+    conn = get_db()
+    cuentas = conn.execute("SELECT * FROM cuentas_cobrar ORDER BY fecha_vencimiento ASC").fetchall()
+    total_pend = conn.execute("SELECT COALESCE(SUM(saldo),0) FROM cuentas_cobrar WHERE estado='Pendiente'").fetchone()[0]
+    vencidas = conn.execute("SELECT COALESCE(SUM(saldo),0) FROM cuentas_cobrar WHERE estado='Pendiente' AND fecha_vencimiento < ?", (hoy(),)).fetchone()[0]
+    conn.close()
+    return render_template('cxc/index.html', cuentas=cuentas, total_pend=total_pend, vencidas=vencidas, hoy=hoy())
+
+@app.route('/cxc/nueva', methods=['GET','POST'])
+def cxc_nueva():
+    if request.method == 'POST':
+        conn = get_db()
+        monto = float(request.form['monto_original'])
+        try:
+            conn.execute('''INSERT INTO cuentas_cobrar
+                (numero,fecha_emision,fecha_vencimiento,cliente_nombre,concepto,
+                 monto_original,monto_pagado,saldo,referencia)
+                VALUES(?,?,?,?,?,?,0,?,?)''', (
+                sig_numero('cuentas_cobrar','numero','CXC'),
+                request.form['fecha_emision'], request.form['fecha_vencimiento'],
+                request.form['cliente_nombre'], request.form['concepto'],
+                monto, monto, request.form.get('referencia','')
+            ))
+            conn.commit()
+            flash('Cuenta por cobrar registrada.', 'success')
+            return redirect(url_for('cxc'))
+        except Exception as e:
+            flash(f'Error: {e}', 'danger')
+        finally:
+            conn.close()
+    return render_template('cxc/form.html', hoy=hoy())
+
+@app.route('/cxc/<int:id>/abonar', methods=['POST'])
+def cxc_abonar(id):
+    conn = get_db()
+    cuenta = conn.execute("SELECT * FROM cuentas_cobrar WHERE id=?", (id,)).fetchone()
+    abono = float(request.form['abono'])
+    nuevo_pagado = cuenta['monto_pagado'] + abono
+    nuevo_saldo = cuenta['monto_original'] - nuevo_pagado
+    estado = 'Pagada' if nuevo_saldo <= 0 else 'Parcial'
+    conn.execute("UPDATE cuentas_cobrar SET monto_pagado=?, saldo=?, estado=? WHERE id=?",
+                 (nuevo_pagado, max(nuevo_saldo,0), estado, id))
+    conn.commit(); conn.close()
+    flash('Abono registrado.', 'success')
+    return redirect(url_for('cxc'))
+
+@app.route('/cxp')
+def cxp():
+    conn = get_db()
+    cuentas = conn.execute("SELECT * FROM cuentas_pagar ORDER BY fecha_vencimiento ASC").fetchall()
+    total_pend = conn.execute("SELECT COALESCE(SUM(saldo),0) FROM cuentas_pagar WHERE estado='Pendiente'").fetchone()[0]
+    vencidas = conn.execute("SELECT COALESCE(SUM(saldo),0) FROM cuentas_pagar WHERE estado='Pendiente' AND fecha_vencimiento < ?", (hoy(),)).fetchone()[0]
+    conn.close()
+    return render_template('cxp/index.html', cuentas=cuentas, total_pend=total_pend, vencidas=vencidas, hoy=hoy())
+
+@app.route('/cxp/nueva', methods=['GET','POST'])
+def cxp_nueva():
+    if request.method == 'POST':
+        conn = get_db()
+        monto = float(request.form['monto_original'])
+        try:
+            conn.execute('''INSERT INTO cuentas_pagar
+                (numero,fecha_emision,fecha_vencimiento,proveedor_nombre,concepto,
+                 monto_original,monto_pagado,saldo,referencia)
+                VALUES(?,?,?,?,?,?,0,?,?)''', (
+                sig_numero('cuentas_pagar','numero','CXP'),
+                request.form['fecha_emision'], request.form['fecha_vencimiento'],
+                request.form['proveedor_nombre'], request.form['concepto'],
+                monto, monto, request.form.get('referencia','')
+            ))
+            conn.commit()
+            flash('Cuenta por pagar registrada.', 'success')
+            return redirect(url_for('cxp'))
+        except Exception as e:
+            flash(f'Error: {e}', 'danger')
+        finally:
+            conn.close()
+    return render_template('cxp/form.html', hoy=hoy())
+
+@app.route('/cxp/<int:id>/pagar', methods=['POST'])
+def cxp_pagar(id):
+    conn = get_db()
+    cuenta = conn.execute("SELECT * FROM cuentas_pagar WHERE id=?", (id,)).fetchone()
+    pago = float(request.form['pago'])
+    nuevo_pagado = cuenta['monto_pagado'] + pago
+    nuevo_saldo = cuenta['monto_original'] - nuevo_pagado
+    estado = 'Pagada' if nuevo_saldo <= 0 else 'Parcial'
+    conn.execute("UPDATE cuentas_pagar SET monto_pagado=?, saldo=?, estado=? WHERE id=?",
+                 (nuevo_pagado, max(nuevo_saldo,0), estado, id))
+    conn.commit(); conn.close()
+    flash('Pago registrado.', 'success')
+    return redirect(url_for('cxp'))
+
+# ─────────────────────────────────────────────
+#  CONCILIACIÓN BANCARIA  (Módulo 09)
+# ─────────────────────────────────────────────
+@app.route('/bancaria')
+def bancaria():
+    conn = get_db()
+    movimientos = conn.execute("SELECT * FROM movimientos_bancarios ORDER BY fecha DESC").fetchall()
+    pendientes = conn.execute("SELECT COUNT(*) FROM movimientos_bancarios WHERE conciliado=0").fetchone()[0]
+    conn.close()
+    return render_template('bancaria/index.html', movimientos=movimientos, pendientes=pendientes)
+
+@app.route('/bancaria/nuevo', methods=['GET','POST'])
+def bancaria_nuevo():
+    if request.method == 'POST':
+        conn = get_db()
+        try:
+            conn.execute('''INSERT INTO movimientos_bancarios
+                (cuenta_bancaria,fecha,descripcion,tipo,monto,saldo_banco,referencia)
+                VALUES(?,?,?,?,?,?,?)''', (
+                request.form['cuenta_bancaria'], request.form['fecha'],
+                request.form['descripcion'], request.form['tipo'],
+                float(request.form['monto']), float(request.form.get('saldo_banco',0) or 0),
+                request.form.get('referencia','')
+            ))
+            conn.commit()
+            flash('Movimiento bancario registrado.', 'success')
+            return redirect(url_for('bancaria'))
+        except Exception as e:
+            flash(f'Error: {e}', 'danger')
+        finally:
+            conn.close()
+    return render_template('bancaria/form.html', hoy=hoy())
+
+@app.route('/bancaria/<int:id>/conciliar', methods=['POST'])
+def bancaria_conciliar(id):
+    conn = get_db()
+    conn.execute("UPDATE movimientos_bancarios SET conciliado=1 WHERE id=?", (id,))
+    conn.commit(); conn.close()
+    flash('Movimiento conciliado.', 'success')
+    return redirect(url_for('bancaria'))
+
+# ─────────────────────────────────────────────
+#  INVENTARIO  (Módulo 10)
+# ─────────────────────────────────────────────
+@app.route('/inventario')
+def inventario():
+    conn = get_db()
+    productos = conn.execute("SELECT * FROM inventario ORDER BY nombre").fetchall()
+    conn.close()
+    return render_template('inventario/index.html', productos=productos)
+
+@app.route('/inventario/nuevo', methods=['GET','POST'])
+def inventario_nuevo():
+    if request.method == 'POST':
+        conn = get_db()
+        try:
+            conn.execute('''INSERT INTO inventario
+                (codigo,nombre,descripcion,categoria,unidad,stock_actual,stock_minimo,
+                 precio_costo,precio_venta,ubicacion)
+                VALUES(?,?,?,?,?,?,?,?,?,?)''', (
+                request.form['codigo'], request.form['nombre'],
+                request.form.get('descripcion',''), request.form.get('categoria',''),
+                request.form.get('unidad','Unidad'),
+                float(request.form.get('stock_actual',0)),
+                float(request.form.get('stock_minimo',5)),
+                float(request.form.get('precio_costo',0)),
+                float(request.form.get('precio_venta',0)),
+                request.form.get('ubicacion','')
+            ))
+            conn.commit()
+            flash('Producto registrado.', 'success')
+            return redirect(url_for('inventario'))
+        except Exception as e:
+            flash(f'Error: {e}', 'danger')
+        finally:
+            conn.close()
+    return render_template('inventario/form.html', producto=None)
+
+@app.route('/inventario/<int:id>/movimiento', methods=['POST'])
+def inventario_movimiento(id):
+    conn = get_db()
+    prod = conn.execute("SELECT * FROM inventario WHERE id=?", (id,)).fetchone()
+    tipo = request.form['tipo']
+    cant = float(request.form['cantidad'])
+    nuevo_stock = prod['stock_actual'] + cant if tipo == 'Entrada' else prod['stock_actual'] - cant
+    if nuevo_stock < 0:
+        flash('Stock insuficiente.', 'danger')
+    else:
+        conn.execute("UPDATE inventario SET stock_actual=? WHERE id=?", (nuevo_stock, id))
+        conn.execute('''INSERT INTO movimientos_inventario
+            (producto_id,fecha,tipo,cantidad,precio_unitario,referencia,stock_resultante)
+            VALUES(?,?,?,?,?,?,?)''', (
+            id, hoy(), tipo, cant,
+            float(request.form.get('precio_unitario',0)),
+            request.form.get('referencia',''), nuevo_stock
+        ))
+        conn.commit()
+        flash('Movimiento registrado.', 'success')
+    conn.close()
+    return redirect(url_for('inventario'))
+
+# ─────────────────────────────────────────────
+#  NÓMINA  (Módulo 11)
+# ─────────────────────────────────────────────
+@app.route('/nomina')
+def nomina():
+    conn = get_db()
+    empleados = conn.execute("SELECT * FROM empleados WHERE estado='Activo' ORDER BY apellidos").fetchall()
+    roles = conn.execute("""
+        SELECT r.*, e.nombres||' '||e.apellidos as emp_nombre
+        FROM roles_pago r JOIN empleados e ON r.empleado_id=e.id
+        ORDER BY r.periodo DESC, e.apellidos
+    """).fetchall()
+    conn.close()
+    return render_template('nomina/index.html', empleados=empleados, roles=roles)
+
+@app.route('/nomina/empleado/nuevo', methods=['GET','POST'])
+def empleado_nuevo():
+    if request.method == 'POST':
+        conn = get_db()
+        ultimo = conn.execute("SELECT codigo FROM empleados ORDER BY id DESC LIMIT 1").fetchone()
+        codigo = f"EMP-{(int(ultimo[0].replace('EMP-',''))+1):04d}" if ultimo else "EMP-0001"
+        try:
+            conn.execute('''INSERT INTO empleados
+                (codigo,nombres,apellidos,cedula,cargo,departamento,salario_base,
+                 fecha_ingreso,tipo_contrato,email,telefono,cuenta_bancaria)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?)''', (
+                codigo, request.form['nombres'], request.form['apellidos'],
+                request.form['cedula'], request.form['cargo'],
+                request.form.get('departamento',''), float(request.form['salario_base']),
+                request.form['fecha_ingreso'], request.form.get('tipo_contrato','Indefinido'),
+                request.form.get('email',''), request.form.get('telefono',''),
+                request.form.get('cuenta_bancaria','')
+            ))
+            conn.commit()
+            flash('Empleado registrado.', 'success')
+            return redirect(url_for('nomina'))
+        except Exception as e:
+            flash(f'Error: {e}', 'danger')
+        finally:
+            conn.close()
+    return render_template('nomina/empleado_form.html')
+
+@app.route('/nomina/rol/nuevo', methods=['GET','POST'])
+def rol_nuevo():
+    conn = get_db()
+    empleados = conn.execute("SELECT * FROM empleados WHERE estado='Activo' ORDER BY apellidos").fetchall()
+    if request.method == 'POST':
+        salario = float(request.form['salario_base'])
+        he_horas = float(request.form.get('horas_extra', 0))
+        he_valor = round(salario / 240 * 1.5 * he_horas, 2)
+        bonos = float(request.form.get('bonos', 0))
+        iess_p = round(salario * 0.0945, 2)
+        iess_pat = round(salario * 0.1215, 2)
+        otros_desc = float(request.form.get('otros_descuentos', 0))
+        liquido = round(salario + he_valor + bonos - iess_p - otros_desc, 2)
+        try:
+            conn.execute('''INSERT INTO roles_pago
+                (empleado_id,periodo,salario_base,horas_extra,valor_horas_extra,bonos,
+                 iess_personal,iess_patronal,otros_descuentos,liquido_recibir,estado)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?)''', (
+                int(request.form['empleado_id']), request.form['periodo'],
+                salario, he_horas, he_valor, bonos, iess_p, iess_pat, otros_desc,
+                liquido, 'Generado'
+            ))
+            conn.commit()
+            flash('Rol de pago generado.', 'success')
+            return redirect(url_for('nomina'))
+        except Exception as e:
+            flash(f'Error: {e}', 'danger')
+        finally:
+            conn.close()
+    conn.close()
+    return render_template('nomina/rol_form.html', empleados=empleados, hoy=hoy())
+
+# ─────────────────────────────────────────────
+#  DECLARACIONES SRI  (Módulo 12)
+# ─────────────────────────────────────────────
+@app.route('/sri')
+def sri():
+    conn = get_db()
+    declaraciones = conn.execute("SELECT * FROM declaraciones_sri ORDER BY periodo DESC").fetchall()
+    conn.close()
+    return render_template('sri/index.html', declaraciones=declaraciones)
+
+@app.route('/sri/nueva', methods=['GET','POST'])
+def sri_nueva():
+    if request.method == 'POST':
+        conn = get_db()
+        periodo = request.form['periodo']
+        tipo = request.form['tipo']
+        vg = float(request.form.get('ventas_gravadas', 0))
+        ve = float(request.form.get('ventas_exentas', 0))
+        cc = float(request.form.get('compras_con_credito', 0))
+        iva_c = round(vg * 0.15, 2)
+        iva_p = round(cc * 0.15, 2)
+        iva_pagar = round(max(iva_c - iva_p, 0), 2)
+        ret_emit = float(request.form.get('retenciones_emitidas', 0))
+        ret_rec = float(request.form.get('retenciones_recibidas', 0))
+        try:
+            conn.execute('''INSERT INTO declaraciones_sri
+                (periodo,tipo,formulario,ventas_gravadas,ventas_exentas,compras_con_credito,
+                 iva_cobrado,iva_pagado,iva_pagar,retenciones_emitidas,retenciones_recibidas,estado)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?)''', (
+                periodo, tipo, request.form.get('formulario','104'),
+                vg, ve, cc, iva_c, iva_p, iva_pagar, ret_emit, ret_rec, 'Borrador'
+            ))
+            conn.commit()
+            flash('Declaración generada.', 'success')
+            return redirect(url_for('sri'))
+        except Exception as e:
+            flash(f'Error: {e}', 'danger')
+        finally:
+            conn.close()
+    # Auto-calcular desde facturas
+    periodo_def = datetime.now().strftime('%Y-%m')
+    conn = get_db()
+    vg = conn.execute("SELECT COALESCE(SUM(subtotal),0) FROM facturas_venta WHERE fecha LIKE ? AND estado!='Anulada'", (f"{periodo_def}%",)).fetchone()[0]
+    cc = conn.execute("SELECT COALESCE(SUM(subtotal),0) FROM facturas_compra WHERE fecha LIKE ?", (f"{periodo_def}%",)).fetchone()[0]
+    conn.close()
+    return render_template('sri/form.html', hoy=hoy(), periodo_def=periodo_def, vg=round(vg,2), cc=round(cc,2))
+
+@app.route('/sri/<int:id>/presentar', methods=['POST'])
+def sri_presentar(id):
+    conn = get_db()
+    conn.execute("UPDATE declaraciones_sri SET estado='Presentada', fecha_declaracion=? WHERE id=?", (hoy(), id))
+    conn.commit(); conn.close()
+    flash('Declaración marcada como presentada.', 'success')
+    return redirect(url_for('sri'))
+
+# ─────────────────────────────────────────────
+#  TORNEOS Y EVENTOS  (Módulo 13)
+# ─────────────────────────────────────────────
+@app.route('/torneos')
+def torneos():
+    conn = get_db()
+    torneos_list = conn.execute("SELECT * FROM torneos ORDER BY fecha_inicio DESC").fetchall()
+    conn.close()
+    return render_template('torneos/index.html', torneos=torneos_list)
+
+@app.route('/torneos/nuevo', methods=['GET','POST'])
+def torneo_nuevo():
+    if request.method == 'POST':
+        conn = get_db()
+        try:
+            conn.execute('''INSERT INTO torneos
+                (nombre,tipo,fecha_inicio,fecha_fin,descripcion,presupuesto,estado)
+                VALUES(?,?,?,?,?,?,?)''', (
+                request.form['nombre'], request.form.get('tipo','Torneo'),
+                request.form['fecha_inicio'], request.form['fecha_fin'],
+                request.form.get('descripcion',''),
+                float(request.form.get('presupuesto',0)),
+                request.form.get('estado','Planificado')
+            ))
+            conn.commit()
+            flash('Torneo/Evento registrado.', 'success')
+            return redirect(url_for('torneos'))
+        except Exception as e:
+            flash(f'Error: {e}', 'danger')
+        finally:
+            conn.close()
+    return render_template('torneos/form.html', hoy=hoy())
+
+@app.route('/torneos/<int:id>')
+def torneo_detalle(id):
+    conn = get_db()
+    torneo = conn.execute("SELECT * FROM torneos WHERE id=?", (id,)).fetchone()
+    transacciones = conn.execute("SELECT * FROM torneo_transacciones WHERE torneo_id=? ORDER BY fecha DESC", (id,)).fetchall()
+    ingresos = sum(t['monto'] for t in transacciones if t['tipo']=='Ingreso')
+    egresos = sum(t['monto'] for t in transacciones if t['tipo']=='Egreso')
+    conn.close()
+    return render_template('torneos/detalle.html', torneo=torneo, transacciones=transacciones,
+                           ingresos=ingresos, egresos=egresos, utilidad=ingresos-egresos)
+
+@app.route('/torneos/<int:id>/transaccion', methods=['POST'])
+def torneo_transaccion(id):
+    conn = get_db()
+    conn.execute('''INSERT INTO torneo_transacciones
+        (torneo_id,fecha,tipo,concepto,monto,referencia)
+        VALUES(?,?,?,?,?,?)''', (
+        id, request.form['fecha'], request.form['tipo'],
+        request.form['concepto'], float(request.form['monto']),
+        request.form.get('referencia','')
+    ))
+    conn.commit(); conn.close()
+    flash('Transacción registrada.', 'success')
+    return redirect(url_for('torneo_detalle', id=id))
+
+# ─────────────────────────────────────────────
+#  PROFORMAS  (Módulo 04)
+# ─────────────────────────────────────────────
+@app.route('/proformas')
+def proformas():
+    conn = get_db()
+    proformas_list = conn.execute("SELECT * FROM proformas ORDER BY fecha DESC").fetchall()
+    conn.close()
+    return render_template('proformas/index.html', proformas=proformas_list)
+
+@app.route('/proformas/nueva', methods=['GET','POST'])
+def proforma_nueva():
+    if request.method == 'POST':
+        conn = get_db()
+        numero = sig_numero('proformas', 'numero', 'PRF')
+        items_desc = request.form.getlist('item_desc[]')
+        items_cant = request.form.getlist('item_cant[]')
+        items_precio = request.form.getlist('item_precio[]')
+        subtotal = sum(float(c)*float(p) for c,p in zip(items_cant, items_precio))
+        iva_pct = float(request.form.get('iva_pct', 15))
+        iva = round(subtotal * iva_pct / 100, 2)
+        total = round(subtotal + iva, 2)
+        try:
+            cur = conn.execute('''INSERT INTO proformas
+                (numero,fecha,validez_dias,cliente_nombre,cliente_email,objeto,subtotal,iva,total,estado,observaciones)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?)''', (
+                numero, request.form['fecha'], int(request.form.get('validez_dias',30)),
+                request.form['cliente_nombre'], request.form.get('cliente_email',''),
+                request.form.get('objeto',''), round(subtotal,2), iva, total,
+                'Emitida', request.form.get('observaciones','')
+            ))
+            pid = cur.lastrowid
+            for d,c,p in zip(items_desc, items_cant, items_precio):
+                if d.strip():
+                    conn.execute('''INSERT INTO proforma_items
+                        (proforma_id,descripcion,cantidad,precio_unitario,subtotal)
+                        VALUES(?,?,?,?,?)''', (pid, d, float(c), float(p), float(c)*float(p)))
+            conn.commit()
+            flash(f'Proforma {numero} emitida.', 'success')
+            return redirect(url_for('proformas'))
+        except Exception as e:
+            flash(f'Error: {e}', 'danger')
+        finally:
+            conn.close()
+    numero_preview = sig_numero('proformas', 'numero', 'PRF')
+    return render_template('proformas/form.html', numero=numero_preview, hoy=hoy())
+
+@app.route('/proformas/<int:id>')
+def proforma_detalle(id):
+    conn = get_db()
+    proforma = conn.execute("SELECT * FROM proformas WHERE id=?", (id,)).fetchone()
+    items = conn.execute("SELECT * FROM proforma_items WHERE proforma_id=?", (id,)).fetchall()
+    conn.close()
+    return render_template('proformas/detalle.html', proforma=proforma, items=items)
+
+# ─────────────────────────────────────────────
+#  REPORTES  (Módulo 02 & 03)
+# ─────────────────────────────────────────────
+@app.route('/reportes')
+def reportes():
+    return render_template('reportes/index.html')
+
+@app.route('/reportes/diario')
+def reporte_diario():
+    fecha_ini = request.args.get('fecha_ini', hoy())
+    fecha_fin = request.args.get('fecha_fin', hoy())
+    conn = get_db()
+    ventas = conn.execute("""SELECT 'Venta' as tipo, numero, fecha, cliente_nombre as contraparte,
+        total FROM facturas_venta WHERE fecha BETWEEN ? AND ? AND estado!='Anulada'
+        UNION ALL
+        SELECT 'Compra', numero, fecha, proveedor_nombre, total FROM facturas_compra
+        WHERE fecha BETWEEN ? AND ?
+        ORDER BY fecha""", (fecha_ini, fecha_fin, fecha_ini, fecha_fin)).fetchall()
+    conn.close()
+    return render_template('reportes/diario.html', movimientos=ventas,
+                           fecha_ini=fecha_ini, fecha_fin=fecha_fin)
+
+@app.route('/reportes/balance-general')
+def balance_general():
+    conn = get_db()
+    ventas_tot = conn.execute("SELECT COALESCE(SUM(total),0) FROM facturas_venta WHERE estado!='Anulada'").fetchone()[0]
+    compras_tot = conn.execute("SELECT COALESCE(SUM(total),0) FROM facturas_compra").fetchone()[0]
+    cuotas_tot = conn.execute("SELECT COALESCE(SUM(total),0) FROM cuotas WHERE estado='Pagada'").fetchone()[0]
+    cxc = conn.execute("SELECT COALESCE(SUM(saldo),0) FROM cuentas_cobrar WHERE estado!='Pagada'").fetchone()[0]
+    cxp = conn.execute("SELECT COALESCE(SUM(saldo),0) FROM cuentas_pagar WHERE estado!='Pagada'").fetchone()[0]
+    inventario_val = conn.execute("SELECT COALESCE(SUM(stock_actual*precio_costo),0) FROM inventario").fetchone()[0]
+    conn.close()
+    caja = ventas_tot + cuotas_tot - compras_tot
+    total_activos = max(caja,0) + cxc + inventario_val
+    total_pasivos = cxp
+    patrimonio = total_activos - total_pasivos
+    return render_template('reportes/balance_general.html',
+        caja=caja, cxc=cxc, inventario_val=inventario_val,
+        total_activos=total_activos, cxp=cxp, total_pasivos=total_pasivos,
+        patrimonio=patrimonio, fecha=hoy()
+    )
+
+@app.route('/reportes/estado-resultados')
+def estado_resultados():
+    mes = request.args.get('mes', datetime.now().strftime('%Y-%m'))
+    conn = get_db()
+    ing_ventas = conn.execute("SELECT COALESCE(SUM(total),0) FROM facturas_venta WHERE fecha LIKE ? AND estado!='Anulada'", (f"{mes}%",)).fetchone()[0]
+    ing_cuotas = conn.execute("SELECT COALESCE(SUM(total),0) FROM cuotas WHERE fecha_pago LIKE ? AND estado='Pagada'", (f"{mes}%",)).fetchone()[0]
+    ing_torneos = conn.execute("SELECT COALESCE(SUM(monto),0) FROM torneo_transacciones WHERE tipo='Ingreso' AND fecha LIKE ?", (f"{mes}%",)).fetchone()[0]
+    total_ingresos = ing_ventas + ing_cuotas + ing_torneos
+    gasto_compras = conn.execute("SELECT COALESCE(SUM(total),0) FROM facturas_compra WHERE fecha LIKE ?", (f"{mes}%",)).fetchone()[0]
+    gasto_nomina = conn.execute("SELECT COALESCE(SUM(liquido_recibir),0) FROM roles_pago WHERE periodo=?", (mes,)).fetchone()[0]
+    gasto_torneos = conn.execute("SELECT COALESCE(SUM(monto),0) FROM torneo_transacciones WHERE tipo='Egreso' AND fecha LIKE ?", (f"{mes}%",)).fetchone()[0]
+    total_gastos = gasto_compras + gasto_nomina + gasto_torneos
+    utilidad = total_ingresos - total_gastos
+    conn.close()
+    return render_template('reportes/estado_resultados.html',
+        mes=mes, ing_ventas=ing_ventas, ing_cuotas=ing_cuotas, ing_torneos=ing_torneos,
+        total_ingresos=total_ingresos, gasto_compras=gasto_compras, gasto_nomina=gasto_nomina,
+        gasto_torneos=gasto_torneos, total_gastos=total_gastos, utilidad=utilidad
+    )
+
+@app.route('/reportes/socios-mora')
+def reporte_socios_mora():
+    conn = get_db()
+    datos = conn.execute("""
+        SELECT s.codigo, s.nombres||' '||s.apellidos as nombre, s.email, s.telefono,
+               COUNT(c.id) as cuotas_pendientes,
+               COALESCE(SUM(c.monto),0) as monto_total
+        FROM socios s
+        JOIN cuotas c ON c.socio_id=s.id
+        WHERE c.estado='Pendiente' AND c.fecha_vencimiento < ?
+        GROUP BY s.id ORDER BY monto_total DESC
+    """, (hoy(),)).fetchall()
+    conn.close()
+    return render_template('reportes/socios_mora.html', datos=datos, hoy=hoy())
+
+# ─────────────────────────────────────────────
+#  PLAN DE CUENTAS
+# ─────────────────────────────────────────────
+@app.route('/plan-cuentas')
+def plan_cuentas():
+    conn = get_db()
+    cuentas = conn.execute("SELECT * FROM plan_cuentas ORDER BY codigo").fetchall()
+    conn.close()
+    return render_template('plan_cuentas/index.html', cuentas=cuentas)
+
+@app.route('/plan-cuentas/nueva', methods=['GET','POST'])
+def cuenta_nueva():
+    if request.method == 'POST':
+        conn = get_db()
+        try:
+            conn.execute('''INSERT INTO plan_cuentas
+                (codigo,nombre,tipo,naturaleza,nivel) VALUES(?,?,?,?,?)''', (
+                request.form['codigo'], request.form['nombre'],
+                request.form['tipo'], request.form['naturaleza'],
+                int(request.form.get('nivel',3))
+            ))
+            conn.commit()
+            flash('Cuenta registrada.', 'success')
+            return redirect(url_for('plan_cuentas'))
+        except Exception as e:
+            flash(f'Error: {e}', 'danger')
+        finally:
+            conn.close()
+    return render_template('plan_cuentas/form.html')
+
+# ─────────────────────────────────────────────
+create_app()
+
+if __name__ == '__main__':
+    app.run(debug=os.environ.get('FLASK_DEBUG') == '1', host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))

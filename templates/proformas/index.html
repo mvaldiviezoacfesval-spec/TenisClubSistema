@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block title %}Proformas{% endblock %}
+{% block icon %}file-earmark-text{% endblock %}
+{% block page_title %}Proformas{% endblock %}
+{% block content %}
+<div class="module-header"><h2><i class="bi bi-file-earmark-text me-2"></i>Cotizaciones y proformas</h2><a href="{{ url_for('proforma_nueva') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Nueva proforma</a></div>
+<div class="card"><div class="table-responsive"><table class="table table-hover">
+  <thead><tr><th>No.</th><th>Fecha</th><th>Cliente</th><th>Objeto</th><th>Total</th><th>Estado</th><th></th></tr></thead><tbody>
+  {% for p in proformas %}<tr><td><strong>{{ p.numero }}</strong></td><td>{{ p.fecha }}</td><td>{{ p.cliente_nombre }}</td><td>{{ p.objeto }}</td><td><strong>${{ "%.2f"|format(p.total) }}</strong></td><td><span class="badge-estado badge-pendiente">{{ p.estado }}</span></td><td><a href="{{ url_for('proforma_detalle', id=p.id) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-eye"></i></a></td></tr>
+  {% else %}<tr><td colspan="7" class="text-center text-muted py-4">Sin proformas.</td></tr>{% endfor %}
+  </tbody></table></div></div>
+{% endblock %}

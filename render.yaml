@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: tenis-club-sistema
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn "app:create_app()" --bind 0.0.0.0:$PORT --workers 1 --timeout 120
+    healthCheckPath: /health
+    envVars:
+      - key: DB_PATH
+        value: /data/tenis_club.db
+      - key: SECRET_KEY
+        generateValue: true
+      - key: FLASK_DEBUG
+        value: "0"
+    disk:
+      name: tenis-club-data
+      mountPath: /data
+      sizeGB: 1

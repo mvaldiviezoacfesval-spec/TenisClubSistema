@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block title %}Nueva Proforma{% endblock %}
+{% block icon %}file-earmark-plus{% endblock %}
+{% block page_title %}Nueva Proforma{% endblock %}
+{% block content %}
+<div class="card"><div class="card-header">Proforma {{ numero }}</div><div class="card-body"><form method="POST">
+  <div class="row g-3 mb-3">
+    <div class="col-md-2"><label class="form-label">Fecha</label><input name="fecha" type="date" value="{{ hoy }}" class="form-control" required></div>
+    <div class="col-md-2"><label class="form-label">Validez dias</label><input name="validez_dias" type="number" value="30" class="form-control"></div>
+    <div class="col-md-4"><label class="form-label">Cliente</label><input name="cliente_nombre" class="form-control" required></div>
+    <div class="col-md-4"><label class="form-label">Email</label><input name="cliente_email" type="email" class="form-control"></div>
+    <div class="col-12"><label class="form-label">Objeto</label><input name="objeto" class="form-control"></div>
+  </div>
+  <div id="items">
+    <div class="item-row row g-2">
+      <div class="col-md-6"><input name="item_desc[]" class="form-control" placeholder="Descripcion" required></div>
+      <div class="col-md-2"><input name="item_cant[]" type="number" step="0.01" value="1" class="form-control" required></div>
+      <div class="col-md-2"><input name="item_precio[]" type="number" step="0.01" value="0" class="form-control" required></div>
+      <div class="col-md-2"><button type="button" class="btn btn-outline-secondary w-100" onclick="addItem()">Agregar</button></div>
+    </div>
+  </div>
+  <div class="row g-3 mt-2"><div class="col-md-2"><label class="form-label">IVA %</label><input name="iva_pct" type="number" step="0.01" value="15" class="form-control"></div><div class="col-md-10"><label class="form-label">Observaciones</label><input name="observaciones" class="form-control"></div></div>
+  <div class="mt-3"><button class="btn btn-primary">Emitir proforma</button><a href="{{ url_for('proformas') }}" class="btn btn-outline-secondary ms-2">Cancelar</a></div>
+</form></div></div>
+<script>
+function addItem(){ const row=document.querySelector('.item-row').cloneNode(true); row.querySelectorAll('input').forEach((i)=>{ if(i.name.includes('desc')) i.value=''; else i.value=i.name.includes('cant')?'1':'0'; }); document.querySelector('#items').appendChild(row); }
+</script>
+{% endblock %}

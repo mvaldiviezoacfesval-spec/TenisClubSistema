@@ -1,0 +1,224 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard{% endblock %}
+{% block icon %}speedometer2{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- KPIs -->
+<div class="row g-3 mb-4">
+  <div class="col-xl-3 col-md-6">
+    <div class="kpi-card success">
+      <div class="kpi-icon" style="background:#d4edda"><i class="bi bi-people-fill" style="color:#155724;font-size:22px"></i></div>
+      <div class="kpi-data">
+        <h3>{{ total_socios }}</h3>
+        <p>Socios Activos</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="kpi-card gold">
+      <div class="kpi-icon" style="background:#fff3cd"><i class="bi bi-cash-stack" style="color:#856404;font-size:22px"></i></div>
+      <div class="kpi-data">
+        <h3>${{ "%.2f"|format(total_ingresos) }}</h3>
+        <p>Ingresos del Mes</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="kpi-card danger">
+      <div class="kpi-icon" style="background:#f8d7da"><i class="bi bi-cart-x" style="color:#721c24;font-size:22px"></i></div>
+      <div class="kpi-data">
+        <h3>${{ "%.2f"|format(eg_mes) }}</h3>
+        <p>Egresos del Mes</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="kpi-card {% if total_ingresos - eg_mes >= 0 %}success{% else %}danger{% endif %}">
+      <div class="kpi-icon" style="background:{% if total_ingresos - eg_mes >= 0 %}#d4edda{% else %}#f8d7da{% endif %}">
+        <i class="bi bi-graph-up-arrow" style="color:{% if total_ingresos - eg_mes >= 0 %}#155724{% else %}#721c24{% endif %};font-size:22px"></i>
+      </div>
+      <div class="kpi-data">
+        <h3>${{ "%.2f"|format(total_ingresos - eg_mes) }}</h3>
+        <p>Utilidad del Mes</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-xl-3 col-md-6">
+    <div class="kpi-card warning">
+      <div class="kpi-icon" style="background:#fff3cd"><i class="bi bi-calendar-x" style="color:#856404;font-size:22px"></i></div>
+      <div class="kpi-data">
+        <h3>{{ cuotas_vencidas }}</h3>
+        <p>Cuotas Vencidas</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="kpi-card">
+      <div class="kpi-icon" style="background:#cce5ff"><i class="bi bi-arrow-down-circle" style="color:#004085;font-size:22px"></i></div>
+      <div class="kpi-data">
+        <h3>${{ "%.2f"|format(cxc_total) }}</h3>
+        <p>Por Cobrar</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="kpi-card danger">
+      <div class="kpi-icon" style="background:#f8d7da"><i class="bi bi-arrow-up-circle" style="color:#721c24;font-size:22px"></i></div>
+      <div class="kpi-data">
+        <h3>${{ "%.2f"|format(cxp_total) }}</h3>
+        <p>Por Pagar</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="kpi-card {% if stock_critico > 0 %}warning{% else %}success{% endif %}">
+      <div class="kpi-icon" style="background:{% if stock_critico > 0 %}#fff3cd{% else %}#d4edda{% endif %}">
+        <i class="bi bi-boxes" style="color:{% if stock_critico > 0 %}#856404{% else %}#155724{% endif %};font-size:22px"></i>
+      </div>
+      <div class="kpi-data">
+        <h3>{{ stock_critico }}</h3>
+        <p>Stock Crítico</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Gráficos y tablas -->
+<div class="row g-3">
+  <div class="col-xl-8">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-bar-chart-line me-2"></i>Ingresos vs Egresos — Últimos 6 meses</div>
+      <div class="card-body">
+        <div class="chart-container">
+          <canvas id="chartIngresos"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-4">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-pie-chart me-2"></i>Resumen Financiero</div>
+      <div class="card-body">
+        <div class="chart-container">
+          <canvas id="chartPie"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mt-1">
+  <div class="col-xl-6">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-receipt me-2"></i>Últimas Facturas</div>
+      <div class="table-responsive">
+        <table class="table table-hover">
+          <thead><tr><th>N°</th><th>Cliente</th><th>Fecha</th><th>Total</th><th>Estado</th></tr></thead>
+          <tbody>
+            {% for f in ultimas_facturas %}
+            <tr>
+              <td><a href="{{ url_for('venta_detalle', id=f.id) }}" class="text-decoration-none fw-semibold">{{ f.numero }}</a></td>
+              <td>{{ f.cliente_nombre[:25] }}</td>
+              <td>{{ f.fecha }}</td>
+              <td><strong>${{ "%.2f"|format(f.total) }}</strong></td>
+              <td><span class="badge-estado badge-{% if f.estado=='Emitida' %}activo{% elif f.estado=='Anulada' %}anulado{% else %}pendiente{% endif %}">{{ f.estado }}</span></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="text-center text-muted py-3">Sin facturas registradas</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-6">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-calendar-x me-2" style="color:#e74c3c"></i>Cuotas Pendientes de Pago</div>
+      <div class="table-responsive">
+        <table class="table table-hover">
+          <thead><tr><th>Socio</th><th>Período</th><th>Vence</th><th>Monto</th></tr></thead>
+          <tbody>
+            {% for c in ultimas_cuotas %}
+            <tr>
+              <td>{{ c.socio_nombre[:22] }}</td>
+              <td>{{ c.periodo }}</td>
+              <td class="{% if c.fecha_vencimiento < now.strftime('%Y-%m-%d') %}text-danger fw-bold{% endif %}">{{ c.fecha_vencimiento }}</td>
+              <td><strong>${{ "%.2f"|format(c.total) }}</strong></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-center text-muted py-3">Sin cuotas pendientes</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if cuotas_vencidas > 0 %}
+      <div class="card-body pt-0">
+        <a href="{{ url_for('cuotas', estado='Pendiente') }}" class="btn btn-sm btn-warning w-100">
+          <i class="bi bi-eye me-1"></i>Ver todas las cuotas vencidas ({{ cuotas_vencidas }})
+        </a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Accesos rápidos -->
+<div class="row g-3 mt-1">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-lightning-charge me-2"></i>Accesos Rápidos</div>
+      <div class="card-body d-flex flex-wrap gap-2">
+        <a href="{{ url_for('venta_nueva') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Nueva Factura</a>
+        <a href="{{ url_for('socio_nuevo') }}" class="btn btn-primary"><i class="bi bi-person-plus me-1"></i>Nuevo Socio</a>
+        <a href="{{ url_for('cuotas_generar') }}" class="btn btn-primary"><i class="bi bi-calendar-plus me-1"></i>Generar Cuotas</a>
+        <a href="{{ url_for('proforma_nueva') }}" class="btn btn-outline-secondary"><i class="bi bi-file-earmark-plus me-1"></i>Nueva Proforma</a>
+        <a href="{{ url_for('estado_resultados') }}" class="btn btn-outline-secondary"><i class="bi bi-graph-up me-1"></i>Estado de Resultados</a>
+        <a href="{{ url_for('balance_general') }}" class="btn btn-outline-secondary"><i class="bi bi-clipboard-data me-1"></i>Balance General</a>
+        <a href="{{ url_for('reporte_socios_mora') }}" class="btn btn-outline-danger"><i class="bi bi-exclamation-triangle me-1"></i>Socios en Mora</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const labels = {{ meses_labels | tojson }};
+const ingresos = {{ meses_ingresos | tojson }};
+const egresos = {{ meses_egresos | tojson }};
+
+new Chart(document.getElementById('chartIngresos'), {
+  type: 'bar',
+  data: {
+    labels,
+    datasets: [
+      { label: 'Ingresos', data: ingresos, backgroundColor: '#2d6a4f', borderRadius: 6 },
+      { label: 'Egresos', data: egresos, backgroundColor: '#e74c3c', borderRadius: 6 }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'top' } },
+    scales: { y: { beginAtZero: true, ticks: { callback: v => '$'+v } } }
+  }
+});
+
+const totalIng = ingresos.reduce((a,b)=>a+b,0);
+const totalEg = egresos.reduce((a,b)=>a+b,0);
+new Chart(document.getElementById('chartPie'), {
+  type: 'doughnut',
+  data: {
+    labels: ['Ingresos', 'Egresos'],
+    datasets: [{ data: [totalIng, totalEg], backgroundColor: ['#2d6a4f','#e74c3c'], borderWidth: 0 }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom' } }
+  }
+});
+</script>
+{% endblock %}

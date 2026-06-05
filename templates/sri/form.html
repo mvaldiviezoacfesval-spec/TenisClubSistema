@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}Nueva Declaracion{% endblock %}
+{% block icon %}file-earmark-plus{% endblock %}
+{% block page_title %}Nueva Declaracion SRI{% endblock %}
+{% block content %}
+<div class="card"><div class="card-body"><form method="POST" class="row g-3">
+  <div class="col-md-2"><label class="form-label">Periodo</label><input name="periodo" type="month" value="{{ periodo_def }}" class="form-control" required></div>
+  <div class="col-md-3"><label class="form-label">Tipo</label><select name="tipo" class="form-select"><option>IVA</option><option>Retenciones</option><option>ATS</option></select></div>
+  <div class="col-md-2"><label class="form-label">Formulario</label><input name="formulario" value="104" class="form-control"></div>
+  <div class="col-md-5"></div>
+  <div class="col-md-3"><label class="form-label">Ventas gravadas</label><input name="ventas_gravadas" type="number" step="0.01" value="{{ vg }}" class="form-control"></div>
+  <div class="col-md-3"><label class="form-label">Ventas exentas</label><input name="ventas_exentas" type="number" step="0.01" value="0" class="form-control"></div>
+  <div class="col-md-3"><label class="form-label">Compras con credito</label><input name="compras_con_credito" type="number" step="0.01" value="{{ cc }}" class="form-control"></div>
+  <div class="col-md-3"><label class="form-label">Retenciones emitidas</label><input name="retenciones_emitidas" type="number" step="0.01" value="0" class="form-control"></div>
+  <div class="col-md-3"><label class="form-label">Retenciones recibidas</label><input name="retenciones_recibidas" type="number" step="0.01" value="0" class="form-control"></div>
+  <div class="col-12"><button class="btn btn-primary">Generar</button><a href="{{ url_for('sri') }}" class="btn btn-outline-secondary ms-2">Cancelar</a></div>
+</form></div></div>
+{% endblock %}

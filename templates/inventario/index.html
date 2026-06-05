@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block title %}Inventario{% endblock %}
+{% block icon %}boxes{% endblock %}
+{% block page_title %}Inventario{% endblock %}
+{% block content %}
+<div class="module-header">
+  <h2><i class="bi bi-boxes me-2"></i>Articulos del club</h2>
+  <a href="{{ url_for('inventario_nuevo') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Nuevo articulo</a>
+</div>
+<div class="card">
+  <div class="card-header"><i class="bi bi-table me-1"></i>Stock</div>
+  <div class="table-responsive"><table class="table table-hover">
+    <thead><tr><th>Codigo</th><th>Producto</th><th>Categoria</th><th>Stock</th><th>Costo</th><th>Venta</th><th>Ubicacion</th><th>Movimiento</th></tr></thead>
+    <tbody>
+    {% for p in productos %}
+      <tr>
+        <td><code>{{ p.codigo }}</code></td><td><strong>{{ p.nombre }}</strong><br><small class="text-muted">{{ p.descripcion }}</small></td><td>{{ p.categoria }}</td>
+        <td class="{% if p.stock_actual <= p.stock_minimo %}stock-bajo{% else %}stock-ok{% endif %}">{{ p.stock_actual }} {{ p.unidad }}</td>
+        <td>${{ "%.2f"|format(p.precio_costo) }}</td><td>${{ "%.2f"|format(p.precio_venta) }}</td><td>{{ p.ubicacion }}</td>
+        <td>
+          <form method="POST" action="{{ url_for('inventario_movimiento', id=p.id) }}" class="d-flex gap-1">
+            <select name="tipo" class="form-select form-select-sm" style="width:95px"><option>Entrada</option><option>Salida</option></select>
+            <input name="cantidad" type="number" min="0.01" step="0.01" class="form-control form-control-sm" style="width:85px" required>
+            <input name="referencia" class="form-control form-control-sm" placeholder="Ref.">
+            <button class="btn btn-sm btn-success"><i class="bi bi-check2"></i></button>
+          </form>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="8" class="text-center text-muted py-4">Sin articulos registrados.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% endblock %}

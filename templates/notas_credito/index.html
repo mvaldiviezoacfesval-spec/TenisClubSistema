@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}Notas de Crédito{% endblock %}
+{% block icon %}file-earmark-minus{% endblock %}
+{% block page_title %}Notas de Crédito{% endblock %}
+{% block content %}
+<div class="module-header">
+  <h2><i class="bi bi-file-earmark-minus me-2"></i>Notas de Crédito</h2>
+  <a href="{{ url_for('nota_credito_nueva') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Nueva Nota</a>
+</div>
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover">
+      <thead><tr><th>Número</th><th>Fecha</th><th>Cliente</th><th>Factura Ref.</th><th>Motivo</th><th>Total</th><th>Tipo</th><th>Estado</th></tr></thead>
+      <tbody>
+        {% for n in notas %}
+        <tr>
+          <td><strong>{{ n.numero }}</strong></td>
+          <td>{{ n.fecha }}</td>
+          <td>{{ n.cliente_nombre }}</td>
+          <td><code>{{ n.factura_ref or '—' }}</code></td>
+          <td>{{ n.motivo[:40] }}</td>
+          <td><strong>${{ "%.2f"|format(n.total) }}</strong></td>
+          <td>{{ n.tipo }}</td>
+          <td><span class="badge-estado badge-activo">{{ n.estado }}</span></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="text-center text-muted py-4">Sin notas de crédito</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
