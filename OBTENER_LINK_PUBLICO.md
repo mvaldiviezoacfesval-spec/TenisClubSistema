@@ -7,6 +7,12 @@ El sistema ya no debe usarse desde `127.0.0.1`. Para tener un link propio necesi
 1. Crea o abre tu cuenta en Render:
    `https://dashboard.render.com`
 2. Sube este proyecto a GitHub.
+   Si ya creaste el repositorio, ejecuta desde esta carpeta:
+
+   ```powershell
+   .\SUBIR_A_GITHUB.ps1 https://github.com/USUARIO/REPOSITORIO.git
+   ```
+
 3. En Render entra a:
    `https://dashboard.render.com/blueprints/new`
 4. Selecciona el repositorio del sistema.
