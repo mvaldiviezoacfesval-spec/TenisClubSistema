@@ -1,45 +1,17 @@
 import sqlite3
 import os
 
-DB_PATH = os.environ.get('DB_PATH', 'tenis_club.db')
-TURSO_DATABASE_URL = os.environ.get('TURSO_DATABASE_URL')
-TURSO_AUTH_TOKEN = os.environ.get('TURSO_AUTH_TOKEN')
-
-
-class SyncedConnection:
-    def __init__(self, conn):
-        self._conn = conn
-
-    def __getattr__(self, name):
-        return getattr(self._conn, name)
-
-    def commit(self):
-        result = self._conn.commit()
-        self.sync()
-        return result
-
-    def close(self):
-        self.sync()
-        return self._conn.close()
-
-    def sync(self):
-        sync = getattr(self._conn, "sync", None)
-        if sync:
-            sync()
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.environ.get('DB_PATH', os.path.join(BASE_DIR, 'tenis_club.db'))
 
 def get_db():
     db_dir = os.path.dirname(DB_PATH)
     if db_dir:
         os.makedirs(db_dir, exist_ok=True)
-    if TURSO_DATABASE_URL and TURSO_AUTH_TOKEN:
-        import libsql
-        conn = libsql.connect(DB_PATH, sync_url=TURSO_DATABASE_URL, auth_token=TURSO_AUTH_TOKEN)
-        conn.sync()
-    else:
-        conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
-    return SyncedConnection(conn) if TURSO_DATABASE_URL and TURSO_AUTH_TOKEN else conn
+    return conn
 
 def init_db():
     conn = get_db()

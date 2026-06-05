@@ -1,6 +1,8 @@
 # Obtener el link publico del sistema
 
-El sistema ya no debe usarse desde `127.0.0.1`. Para tener un link propio necesitas subir este proyecto a una plataforma cloud. La configuracion lista esta en `render.yaml` y usa Render Free + Turso Free para evitar pago.
+El sistema ya no debe usarse desde `127.0.0.1`. Si Render pide pago o Turso se complica, usa PythonAnywhere: una sola cuenta gratis y un link tipo `https://TU_USUARIO.pythonanywhere.com`.
+
+La guia exacta esta en `DEPLOY_PYTHONANYWHERE.md`.
 
 ## Crear base gratis en Turso
 
