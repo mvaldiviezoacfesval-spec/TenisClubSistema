@@ -13,6 +13,8 @@ services:
         generateValue: true
       - key: FLASK_DEBUG
         value: "0"
+      - key: PYTHON_VERSION
+        value: "3.12"
     disk:
       name: tenis-club-data
       mountPath: /data
