@@ -93,6 +93,51 @@ def calcular_mora(vencimiento, monto, tasa=0.03):
 # ─────────────────────────────────────────────
 #  DASHBOARD  (Módulo 06)
 # ─────────────────────────────────────────────
+def sig_numero_conn(conn, tabla, campo, prefijo):
+    anio = datetime.now().year
+    patron = f"{prefijo}-{anio}-%"
+    row = conn.execute(f"SELECT {campo} FROM {tabla} WHERE {campo} LIKE ? ORDER BY {campo} DESC LIMIT 1", (patron,)).fetchone()
+    if row:
+        ultimo = int(row[0].split('-')[-1])
+        return f"{prefijo}-{anio}-{ultimo+1:04d}"
+    return f"{prefijo}-{anio}-0001"
+
+def cuenta_id(conn, codigo):
+    cuenta = conn.execute("SELECT id FROM plan_cuentas WHERE codigo=? AND activa=1", (codigo,)).fetchone()
+    if not cuenta:
+        raise ValueError(f"No existe la cuenta contable activa {codigo}")
+    return cuenta['id']
+
+def crear_asiento_automatico(conn, fecha, concepto, referencia_tipo, referencia_id, detalles):
+    detalles_validos = []
+    total_debe = 0.0
+    total_haber = 0.0
+    for codigo, descripcion, debe, haber in detalles:
+        debe = round(float(debe or 0), 3)
+        haber = round(float(haber or 0), 3)
+        if debe > 0 or haber > 0:
+            detalles_validos.append((cuenta_id(conn, codigo), descripcion, debe, haber))
+            total_debe += debe
+            total_haber += haber
+
+    if len(detalles_validos) < 2:
+        return None
+    if round(total_debe, 3) != round(total_haber, 3):
+        raise ValueError(f"Asiento automatico descuadrado: debe {total_debe:.3f}, haber {total_haber:.3f}")
+
+    numero = sig_numero_conn(conn, 'asientos', 'numero', 'ASI')
+    cur = conn.execute('''INSERT INTO asientos
+        (numero,fecha,concepto,tipo,referencia_tipo,referencia_id)
+        VALUES(?,?,?,?,?,?)''', (
+        numero, fecha, concepto, 'automatico', referencia_tipo, referencia_id
+    ))
+    asiento_id = cur.lastrowid
+    for cuenta, descripcion, debe, haber in detalles_validos:
+        conn.execute('''INSERT INTO asiento_detalles
+            (asiento_id,cuenta_id,descripcion,debe,haber)
+            VALUES(?,?,?,?,?)''', (asiento_id, cuenta, descripcion, debe, haber))
+    return asiento_id
+
 @app.route('/')
 def dashboard():
     conn = get_db()
@@ -281,6 +326,12 @@ def venta_nueva():
                     request.form['cliente_nombre'], f"Factura de venta {numero}",
                     total, total, 'Pendiente', numero, 'factura_venta', fid
                 ))
+                crear_asiento_automatico(conn, request.form['fecha'], f"Venta {numero} - {request.form['cliente_nombre']}",
+                    'factura_venta', fid, [
+                    ('1.1.04', f"CxC factura {numero}", total, 0),
+                    ('4.1.03', f"Ingreso factura {numero}", 0, round(subtotal, 3)),
+                    ('2.1.02', f"IVA factura {numero}", 0, iva),
+                ])
             conn.commit()
             flash(f'Factura {numero} registrada y cargada automaticamente en Cuentas por Cobrar.', 'success')
             return redirect(url_for('ventas'))
@@ -302,10 +353,22 @@ def venta_detalle(id):
 @app.route('/ventas/<int:id>/anular', methods=['POST'])
 def venta_anular(id):
     conn = get_db()
+    factura = conn.execute("SELECT * FROM facturas_venta WHERE id=?", (id,)).fetchone()
+    if not factura or factura['estado'] == 'Anulada':
+        conn.close()
+        flash('La factura ya se encuentra anulada o no existe.', 'warning')
+        return redirect(url_for('ventas'))
     conn.execute("UPDATE facturas_venta SET estado='Anulada' WHERE id=?", (id,))
     conn.execute('''UPDATE cuentas_cobrar
         SET estado='Anulada', monto_pagado=0, saldo=0
         WHERE referencia_tipo='factura_venta' AND referencia_id=? AND estado!='Pagada' ''', (id,))
+    if factura:
+        crear_asiento_automatico(conn, hoy(), f"Anulacion venta {factura['numero']}",
+            'anulacion_factura_venta', id, [
+            ('4.1.03', f"Reverso ingreso {factura['numero']}", factura['subtotal'], 0),
+            ('2.1.02', f"Reverso IVA {factura['numero']}", factura['iva'], 0),
+            ('1.1.04', f"Reverso CxC {factura['numero']}", 0, factura['total']),
+        ])
     conn.commit(); conn.close()
     flash('Factura anulada y Cuenta por Cobrar vinculada revertida.', 'warning')
     return redirect(url_for('ventas'))
@@ -357,6 +420,12 @@ def compra_nueva():
                 total, total, 'Pendiente',
                 request.form['numero'], 'factura_compra', fid
             ))
+            crear_asiento_automatico(conn, request.form['fecha'], f"Compra {request.form['numero']} - {request.form['proveedor_nombre']}",
+                'factura_compra', fid, [
+                ('5.1.08', f"Gasto compra {request.form['numero']}", round(subtotal, 3), 0),
+                ('1.1.07', f"IVA compra {request.form['numero']}", iva, 0),
+                ('2.1.01', f"CxP compra {request.form['numero']}", 0, total),
+            ])
             conn.commit()
             flash('Factura de compra registrada y cargada automaticamente en cuentas por pagar.', 'success')
             return redirect(url_for('compras'))
@@ -503,7 +572,12 @@ def cxc_abonar(id):
     nuevo_saldo = cuenta['monto_original'] - nuevo_pagado
     estado = 'Pagada' if nuevo_saldo <= 0 else 'Parcial'
     conn.execute("UPDATE cuentas_cobrar SET monto_pagado=?, saldo=?, estado=? WHERE id=?",
-                 (nuevo_pagado, max(nuevo_saldo,0), estado, id))
+                 (round(nuevo_pagado, 3), round(max(nuevo_saldo,0), 3), estado, id))
+    crear_asiento_automatico(conn, request.form.get('fecha_cobro') or hoy(), f"Cobro CxC {cuenta['numero']} - {cuenta['cliente_nombre']}",
+        'cobro_cxc', id, [
+        ('1.1.02', f"Cobro {cuenta['numero']}", abono, 0),
+        ('1.1.04', f"Abono CxC {cuenta['numero']}", 0, abono),
+    ])
     conn.commit(); conn.close()
     flash('Abono registrado.', 'success')
     return redirect(url_for('cxc'))
@@ -560,13 +634,18 @@ def cxp_pagar(id):
     estado = 'Pagada' if nuevo_saldo <= 0 else 'Parcial'
     conn.execute("UPDATE cuentas_pagar SET monto_pagado=?, saldo=?, estado=? WHERE id=?",
                  (round(nuevo_pagado, 3), round(max(nuevo_saldo,0), 3), estado, id))
+    asiento_id = crear_asiento_automatico(conn, request.form.get('fecha_pago') or hoy(), f"Pago CxP {cuenta['numero']} - {cuenta['proveedor_nombre']}",
+        'pago_cxp', id, [
+        ('2.1.01', f"Pago {cuenta['numero']}", pago, 0),
+        ('1.1.02', f"Salida banco {cuenta['numero']}", 0, pago),
+    ])
     conn.execute('''INSERT INTO movimientos_bancarios
-        (cuenta_bancaria,fecha,descripcion,tipo,monto,saldo_banco,referencia,conciliado)
-        VALUES(?,?,?,?,?,?,?,0)''', (
+        (cuenta_bancaria,fecha,descripcion,tipo,monto,saldo_banco,referencia,conciliado,asiento_id)
+        VALUES(?,?,?,?,?,?,?,0,?)''', (
         request.form.get('cuenta_bancaria') or 'Banco principal',
         request.form.get('fecha_pago') or hoy(),
         f"Pago CxP {cuenta['numero']} - {cuenta['proveedor_nombre']}",
-        'Egreso', pago, None, cuenta['numero']
+        'Egreso', pago, None, cuenta['numero'], asiento_id
     ))
     conn.commit(); conn.close()
     flash('Pago registrado y enviado a conciliacion bancaria como egreso.', 'success')
@@ -615,6 +694,11 @@ def revision_anular_pago_cxp(movimiento_id):
 
     conn.execute("UPDATE cuentas_pagar SET monto_pagado=?, saldo=?, estado=? WHERE id=?",
                  (round(nuevo_pagado, 3), round(nuevo_saldo, 3), estado, movimiento['cuenta_id']))
+    crear_asiento_automatico(conn, hoy(), f"Anulacion pago CxP {movimiento['referencia']}",
+        'anulacion_pago_cxp', movimiento_id, [
+        ('1.1.02', f"Reverso banco {movimiento['referencia']}", movimiento['monto'], 0),
+        ('2.1.01', f"Reverso pago {movimiento['referencia']}", 0, movimiento['monto']),
+    ])
     conn.execute("DELETE FROM movimientos_bancarios WHERE id=?", (movimiento_id,))
     conn.commit()
     conn.close()
