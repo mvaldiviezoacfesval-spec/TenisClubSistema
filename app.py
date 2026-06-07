@@ -38,11 +38,18 @@ def login():
         if usuario == APP_USERNAME and contrasena == APP_PASSWORD:
             session['autenticado'] = True
             session['usuario'] = usuario
-            flash('Bienvenido al sistema.', 'success')
             destino = request.args.get('next') or url_for('dashboard')
-            return redirect(destino)
+            if not destino.startswith('/') or destino.startswith('//'):
+                destino = url_for('dashboard')
+            session['welcome_next'] = destino
+            return redirect(url_for('bienvenida'))
         flash('Usuario o contrasena incorrectos.', 'danger')
     return render_template('login.html')
+
+@app.route('/bienvenida')
+def bienvenida():
+    destino = session.get('welcome_next') or url_for('dashboard')
+    return render_template('bienvenida.html', destino=destino)
 
 @app.route('/logout')
 def logout():
@@ -539,7 +546,7 @@ def cxp_pagar(id):
     nuevo_saldo = cuenta['monto_original'] - nuevo_pagado
     estado = 'Pagada' if nuevo_saldo <= 0 else 'Parcial'
     conn.execute("UPDATE cuentas_pagar SET monto_pagado=?, saldo=?, estado=? WHERE id=?",
-                 (nuevo_pagado, max(nuevo_saldo,0), estado, id))
+                 (round(nuevo_pagado, 3), round(max(nuevo_saldo,0), 3), estado, id))
     conn.execute('''INSERT INTO movimientos_bancarios
         (cuenta_bancaria,fecha,descripcion,tipo,monto,saldo_banco,referencia,conciliado)
         VALUES(?,?,?,?,?,?,?,0)''', (
@@ -555,6 +562,52 @@ def cxp_pagar(id):
 # ─────────────────────────────────────────────
 #  CONCILIACIÓN BANCARIA  (Módulo 09)
 # ─────────────────────────────────────────────
+@app.route('/revision-documentos')
+def revision_documentos():
+    conn = get_db()
+    pagos_cxp = conn.execute('''
+        SELECT m.*, c.id as cuenta_id, c.proveedor_nombre, c.concepto,
+               c.monto_original, c.monto_pagado, c.saldo, c.estado as cuenta_estado
+        FROM movimientos_bancarios m
+        LEFT JOIN cuentas_pagar c ON c.numero = m.referencia
+        WHERE m.tipo='Egreso'
+          AND m.descripcion LIKE 'Pago CxP %'
+        ORDER BY m.fecha DESC, m.id DESC
+    ''').fetchall()
+    conn.close()
+    return render_template('revision_documentos/index.html', pagos_cxp=pagos_cxp)
+
+@app.route('/revision-documentos/pago-cxp/<int:movimiento_id>/anular', methods=['POST'])
+def revision_anular_pago_cxp(movimiento_id):
+    conn = get_db()
+    movimiento = conn.execute('''
+        SELECT m.*, c.id as cuenta_id, c.monto_original, c.monto_pagado
+        FROM movimientos_bancarios m
+        JOIN cuentas_pagar c ON c.numero = m.referencia
+        WHERE m.id=? AND m.tipo='Egreso' AND m.descripcion LIKE 'Pago CxP %'
+    ''', (movimiento_id,)).fetchone()
+    if not movimiento:
+        conn.close()
+        flash('No se encontro un pago CxP valido para anular.', 'danger')
+        return redirect(url_for('revision_documentos'))
+
+    nuevo_pagado = max((movimiento['monto_pagado'] or 0) - movimiento['monto'], 0)
+    nuevo_saldo = max((movimiento['monto_original'] or 0) - nuevo_pagado, 0)
+    if nuevo_pagado <= 0:
+        estado = 'Pendiente'
+    elif nuevo_saldo <= 0:
+        estado = 'Pagada'
+    else:
+        estado = 'Parcial'
+
+    conn.execute("UPDATE cuentas_pagar SET monto_pagado=?, saldo=?, estado=? WHERE id=?",
+                 (round(nuevo_pagado, 3), round(nuevo_saldo, 3), estado, movimiento['cuenta_id']))
+    conn.execute("DELETE FROM movimientos_bancarios WHERE id=?", (movimiento_id,))
+    conn.commit()
+    conn.close()
+    flash('Pago anulado: se elimino el egreso bancario y se devolvio el saldo a Cuentas por Pagar.', 'success')
+    return redirect(url_for('revision_documentos'))
+
 @app.route('/bancaria')
 def bancaria():
     mes = request.args.get('mes') or datetime.now().strftime('%Y-%m')

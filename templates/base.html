@@ -62,6 +62,9 @@
     <a href="{{ url_for('bancaria') }}" class="nav-link {% if 'bancaria' in request.endpoint %}active{% endif %}">
       <span class="icon"><i class="bi bi-bank"></i></span> Conciliación Bancaria
     </a>
+    <a href="{{ url_for('revision_documentos') }}" class="nav-link {% if 'revision' in request.endpoint %}active{% endif %}">
+      <span class="icon"><i class="bi bi-clipboard-check"></i></span> Revision de Documentos
+    </a>
     <a href="{{ url_for('inventario') }}" class="nav-link {% if 'inventario' in request.endpoint %}active{% endif %}">
       <span class="icon"><i class="bi bi-boxes"></i></span> Inventario
     </a>

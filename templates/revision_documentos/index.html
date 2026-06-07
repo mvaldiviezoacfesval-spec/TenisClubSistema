@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% block title %}Revision de documentos{% endblock %}
+{% block icon %}clipboard-check{% endblock %}
+{% block page_title %}Revision de documentos{% endblock %}
+{% block content %}
+<div class="module-header">
+  <h2><i class="bi bi-clipboard-check me-2"></i>Revision de documentos</h2>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-4">
+    <div class="kpi-card warning">
+      <div class="kpi-icon"><i class="bi bi-arrow-counterclockwise"></i></div>
+      <div class="kpi-data">
+        <h3>{{ pagos_cxp|length }}</h3>
+        <p>Pagos CxP revisables</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><i class="bi bi-cash-stack me-1"></i>Pagos realizados a proveedores</div>
+  <div class="table-responsive">
+    <table class="table table-hover">
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Cuenta</th>
+          <th>Proveedor</th>
+          <th>Descripcion</th>
+          <th>Monto</th>
+          <th>Conciliacion</th>
+          <th>Estado CxP</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in pagos_cxp %}
+        <tr>
+          <td>{{ p.fecha }}</td>
+          <td><code>{{ p.referencia }}</code></td>
+          <td>{{ p.proveedor_nombre or 'Sin cuenta vinculada' }}</td>
+          <td>{{ p.descripcion }}</td>
+          <td><strong>${{ "%.3f"|format(p.monto) }}</strong></td>
+          <td>
+            <span class="badge-estado badge-{% if p.conciliado %}pagado{% else %}pendiente{% endif %}">
+              {{ 'Conciliado' if p.conciliado else 'Pendiente' }}
+            </span>
+          </td>
+          <td>
+            <span class="badge-estado badge-{% if p.cuenta_estado == 'Pagada' %}pagado{% elif p.cuenta_estado == 'Parcial' %}pendiente{% else %}vencido{% endif %}">
+              {{ p.cuenta_estado or 'No encontrada' }}
+            </span>
+          </td>
+          <td class="text-end">
+            {% if p.cuenta_id %}
+            <form method="POST" action="{{ url_for('revision_anular_pago_cxp', movimiento_id=p.id) }}" onsubmit="return confirm('Seguro que deseas anular este pago? Se eliminara el egreso bancario y volvera el saldo a Cuentas por Pagar.');">
+              <button class="btn btn-sm btn-outline-danger">
+                <i class="bi bi-x-circle me-1"></i>Anular pago
+              </button>
+            </form>
+            {% else %}
+            <span class="text-muted small">No disponible</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="text-center text-muted py-4">No hay pagos CxP para revisar.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
