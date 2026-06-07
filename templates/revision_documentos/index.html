@@ -13,6 +13,9 @@
       <a href="{{ url_for('revision_documentos', tipo='cxc') }}" class="btn btn-sm {% if tipo=='cxc' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
         <i class="bi bi-wallet2 me-1"></i>Cuentas por Cobrar
       </a>
+      <a href="{{ url_for('revision_documentos', tipo='cxp') }}" class="btn btn-sm {% if tipo=='cxp' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+        <i class="bi bi-credit-card-2-front me-1"></i>Cuentas por Pagar
+      </a>
       <a href="{{ url_for('revision_documentos', tipo='ventas') }}" class="btn btn-sm {% if tipo=='ventas' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
         <i class="bi bi-receipt me-1"></i>Facturas de Venta
       </a>
@@ -52,6 +55,37 @@
         </tr>
         {% else %}
         <tr><td colspan="8" class="text-center text-muted py-4">No hay Cuentas por Cobrar para revisar.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% elif tipo == 'cxp' %}
+<div class="card">
+  <div class="card-header"><i class="bi bi-credit-card-2-front me-1"></i>Cuentas por Pagar</div>
+  <div class="table-responsive">
+    <table class="table table-hover">
+      <thead><tr><th>Fecha</th><th>Cuenta</th><th>Proveedor</th><th>Concepto</th><th>Saldo</th><th>Pagado</th><th>Estado</th><th></th></tr></thead>
+      <tbody>
+        {% for c in cuentas_pagar %}
+        <tr>
+          <td>{{ c.fecha_emision }}</td>
+          <td><code>{{ c.numero }}</code></td>
+          <td>{{ c.proveedor_nombre }}</td>
+          <td>{{ c.concepto }}</td>
+          <td><strong>${{ "%.3f"|format(c.saldo) }}</strong></td>
+          <td>${{ "%.3f"|format(c.monto_pagado or 0) }}</td>
+          <td><span class="badge-estado badge-{% if c.estado == 'Pagada' %}pagado{% elif c.estado == 'Parcial' %}pendiente{% else %}vencido{% endif %}">{{ c.estado }}</span></td>
+          <td class="text-end">
+            <form method="POST" action="{{ url_for('revision_anular_cxp', cuenta_id=c.id) }}" onsubmit="return confirm('Seguro que deseas anular esta Cuenta por Pagar? Si viene de una compra, tambien se anulara la compra y se reversara el asiento.');">
+              <button class="btn btn-sm btn-outline-danger" {% if c.monto_pagado and c.monto_pagado > 0 %}disabled title="Tiene pagos registrados"{% endif %}>
+                <i class="bi bi-x-circle me-1"></i>Anular
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="text-center text-muted py-4">No hay Cuentas por Pagar para revisar.</td></tr>
         {% endfor %}
       </tbody>
     </table>
