@@ -358,6 +358,11 @@ def venta_anular(id):
         conn.close()
         flash('La factura ya se encuentra anulada o no existe.', 'warning')
         return redirect(url_for('ventas'))
+    cxc = conn.execute("SELECT * FROM cuentas_cobrar WHERE referencia_tipo='factura_venta' AND referencia_id=?", (id,)).fetchone()
+    if cxc and (cxc['monto_pagado'] or 0) > 0:
+        conn.close()
+        flash('No se puede anular una factura con abonos en Cuentas por Cobrar. Primero reversa los cobros relacionados.', 'danger')
+        return redirect(url_for('ventas'))
     conn.execute("UPDATE facturas_venta SET estado='Anulada' WHERE id=?", (id,))
     conn.execute('''UPDATE cuentas_cobrar
         SET estado='Anulada', monto_pagado=0, saldo=0
@@ -656,6 +661,7 @@ def cxp_pagar(id):
 # ─────────────────────────────────────────────
 @app.route('/revision-documentos')
 def revision_documentos():
+    tipo = request.args.get('tipo', 'cxc')
     conn = get_db()
     pagos_cxp = conn.execute('''
         SELECT m.*, c.id as cuenta_id, c.proveedor_nombre, c.concepto,
@@ -666,8 +672,119 @@ def revision_documentos():
           AND m.descripcion LIKE 'Pago CxP %'
         ORDER BY m.fecha DESC, m.id DESC
     ''').fetchall()
+    cuentas_cobrar = conn.execute('''
+        SELECT c.*, f.numero as factura_numero, f.estado as factura_estado
+        FROM cuentas_cobrar c
+        LEFT JOIN facturas_venta f ON c.referencia_tipo='factura_venta' AND c.referencia_id=f.id
+        WHERE c.estado!='Anulada'
+        ORDER BY c.fecha_emision DESC, c.id DESC
+    ''').fetchall()
+    facturas_venta = conn.execute('''
+        SELECT f.*, c.numero as cxc_numero, c.estado as cxc_estado, c.saldo as cxc_saldo
+        FROM facturas_venta f
+        LEFT JOIN cuentas_cobrar c ON c.referencia_tipo='factura_venta' AND c.referencia_id=f.id
+        WHERE f.estado!='Anulada'
+        ORDER BY f.fecha DESC, f.id DESC
+    ''').fetchall()
+    facturas_compra = conn.execute('''
+        SELECT f.*, c.id as cxp_id, c.numero as cxp_numero, c.estado as cxp_estado,
+               c.monto_pagado as cxp_pagado, c.saldo as cxp_saldo
+        FROM facturas_compra f
+        LEFT JOIN cuentas_pagar c ON c.referencia_tipo='factura_compra' AND c.referencia_id=f.id
+        WHERE f.estado!='Anulada'
+        ORDER BY f.fecha DESC, f.id DESC
+    ''').fetchall()
     conn.close()
-    return render_template('revision_documentos/index.html', pagos_cxp=pagos_cxp)
+    return render_template('revision_documentos/index.html', tipo=tipo, pagos_cxp=pagos_cxp,
+                           cuentas_cobrar=cuentas_cobrar, facturas_venta=facturas_venta,
+                           facturas_compra=facturas_compra)
+
+@app.route('/revision-documentos/cxc/<int:cuenta_id>/anular', methods=['POST'])
+def revision_anular_cxc(cuenta_id):
+    conn = get_db()
+    cuenta = conn.execute("SELECT * FROM cuentas_cobrar WHERE id=?", (cuenta_id,)).fetchone()
+    if not cuenta or cuenta['estado'] == 'Anulada':
+        conn.close()
+        flash('La Cuenta por Cobrar ya esta anulada o no existe.', 'warning')
+        return redirect(url_for('revision_documentos', tipo='cxc'))
+    if (cuenta['monto_pagado'] or 0) > 0:
+        conn.close()
+        flash('No se puede anular una CxC con abonos registrados. Primero revisa y reversa los cobros relacionados.', 'danger')
+        return redirect(url_for('revision_documentos', tipo='cxc'))
+
+    if cuenta['referencia_tipo'] == 'factura_venta' and cuenta['referencia_id']:
+        factura = conn.execute("SELECT * FROM facturas_venta WHERE id=?", (cuenta['referencia_id'],)).fetchone()
+        if factura and factura['estado'] != 'Anulada':
+            conn.execute("UPDATE facturas_venta SET estado='Anulada' WHERE id=?", (factura['id'],))
+            crear_asiento_automatico(conn, hoy(), f"Anulacion CxC factura {factura['numero']}",
+                'anulacion_cxc', cuenta_id, [
+                ('4.1.03', f"Reverso ingreso {factura['numero']}", factura['subtotal'], 0),
+                ('2.1.02', f"Reverso IVA {factura['numero']}", factura['iva'], 0),
+                ('1.1.04', f"Reverso CxC {factura['numero']}", 0, factura['total']),
+            ])
+
+    conn.execute("UPDATE cuentas_cobrar SET estado='Anulada', monto_pagado=0, saldo=0 WHERE id=?", (cuenta_id,))
+    conn.commit()
+    conn.close()
+    flash('Cuenta por Cobrar anulada correctamente.', 'success')
+    return redirect(url_for('revision_documentos', tipo='cxc'))
+
+@app.route('/revision-documentos/factura-venta/<int:factura_id>/anular', methods=['POST'])
+def revision_anular_factura_venta(factura_id):
+    conn = get_db()
+    factura = conn.execute("SELECT * FROM facturas_venta WHERE id=?", (factura_id,)).fetchone()
+    if not factura or factura['estado'] == 'Anulada':
+        conn.close()
+        flash('La factura ya se encuentra anulada o no existe.', 'warning')
+        return redirect(url_for('revision_documentos', tipo='ventas'))
+    cxc = conn.execute("SELECT * FROM cuentas_cobrar WHERE referencia_tipo='factura_venta' AND referencia_id=?", (factura_id,)).fetchone()
+    if cxc and (cxc['monto_pagado'] or 0) > 0:
+        conn.close()
+        flash('No se puede anular una factura con abonos en Cuentas por Cobrar. Primero reversa los cobros relacionados.', 'danger')
+        return redirect(url_for('revision_documentos', tipo='ventas'))
+
+    conn.execute("UPDATE facturas_venta SET estado='Anulada' WHERE id=?", (factura_id,))
+    conn.execute('''UPDATE cuentas_cobrar
+        SET estado='Anulada', monto_pagado=0, saldo=0
+        WHERE referencia_tipo='factura_venta' AND referencia_id=? AND estado!='Pagada' ''', (factura_id,))
+    crear_asiento_automatico(conn, hoy(), f"Anulacion venta {factura['numero']}",
+        'anulacion_factura_venta', factura_id, [
+        ('4.1.03', f"Reverso ingreso {factura['numero']}", factura['subtotal'], 0),
+        ('2.1.02', f"Reverso IVA {factura['numero']}", factura['iva'], 0),
+        ('1.1.04', f"Reverso CxC {factura['numero']}", 0, factura['total']),
+    ])
+    conn.commit()
+    conn.close()
+    flash('Factura de venta anulada y asiento reversado correctamente.', 'success')
+    return redirect(url_for('revision_documentos', tipo='ventas'))
+
+@app.route('/revision-documentos/compra/<int:factura_id>/anular', methods=['POST'])
+def revision_anular_compra(factura_id):
+    conn = get_db()
+    factura = conn.execute("SELECT * FROM facturas_compra WHERE id=?", (factura_id,)).fetchone()
+    if not factura or factura['estado'] == 'Anulada':
+        conn.close()
+        flash('La compra ya esta anulada o no existe.', 'warning')
+        return redirect(url_for('revision_documentos', tipo='compras'))
+    cxp = conn.execute("SELECT * FROM cuentas_pagar WHERE referencia_tipo='factura_compra' AND referencia_id=?", (factura_id,)).fetchone()
+    if cxp and (cxp['monto_pagado'] or 0) > 0:
+        conn.close()
+        flash('No se puede anular una compra con pagos registrados. Primero anula el pago desde Pagos CxP.', 'danger')
+        return redirect(url_for('revision_documentos', tipo='compras'))
+
+    conn.execute("UPDATE facturas_compra SET estado='Anulada' WHERE id=?", (factura_id,))
+    if cxp:
+        conn.execute("UPDATE cuentas_pagar SET estado='Anulada', monto_pagado=0, saldo=0 WHERE id=?", (cxp['id'],))
+    crear_asiento_automatico(conn, hoy(), f"Anulacion compra {factura['numero']}",
+        'anulacion_factura_compra', factura_id, [
+        ('2.1.01', f"Reverso CxP compra {factura['numero']}", factura['total'], 0),
+        ('5.1.08', f"Reverso gasto compra {factura['numero']}", 0, factura['subtotal']),
+        ('1.1.07', f"Reverso IVA compra {factura['numero']}", 0, factura['iva']),
+    ])
+    conn.commit()
+    conn.close()
+    flash('Compra anulada y asiento reversado correctamente.', 'success')
+    return redirect(url_for('revision_documentos', tipo='compras'))
 
 @app.route('/revision-documentos/pago-cxp/<int:movimiento_id>/anular', methods=['POST'])
 def revision_anular_pago_cxp(movimiento_id):
