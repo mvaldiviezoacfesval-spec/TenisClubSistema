@@ -194,6 +194,8 @@ def init_db():
         estado TEXT DEFAULT 'Pendiente',
         referencia TEXT
     )''')
+    _add_column_if_missing(c, 'cuentas_cobrar', 'referencia_tipo', 'TEXT')
+    _add_column_if_missing(c, 'cuentas_cobrar', 'referencia_id', 'INTEGER')
 
     # --- CUENTAS POR PAGAR ---
     c.execute('''CREATE TABLE IF NOT EXISTS cuentas_pagar (

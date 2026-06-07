@@ -271,8 +271,18 @@ def venta_nueva():
                     conn.execute('''INSERT INTO factura_venta_items
                         (factura_id,descripcion,cantidad,precio_unitario,subtotal)
                         VALUES(?,?,?,?,?)''', (fid, d, float(c), float(p), float(c)*float(p)))
+            if request.form.get('estado','Emitida') != 'Anulada':
+                conn.execute('''INSERT INTO cuentas_cobrar
+                    (numero,fecha_emision,fecha_vencimiento,cliente_nombre,concepto,
+                     monto_original,monto_pagado,saldo,estado,referencia,referencia_tipo,referencia_id)
+                    VALUES(?,?,?,?,?,?,0,?,?,?,?,?)''', (
+                    sig_numero('cuentas_cobrar','numero','CXC'),
+                    request.form['fecha'], request.form['fecha'],
+                    request.form['cliente_nombre'], f"Factura de venta {numero}",
+                    total, total, 'Pendiente', numero, 'factura_venta', fid
+                ))
             conn.commit()
-            flash(f'Factura {numero} registrada.', 'success')
+            flash(f'Factura {numero} registrada y cargada automaticamente en Cuentas por Cobrar.', 'success')
             return redirect(url_for('ventas'))
         except Exception as e:
             flash(f'Error: {e}', 'danger')
@@ -293,8 +303,11 @@ def venta_detalle(id):
 def venta_anular(id):
     conn = get_db()
     conn.execute("UPDATE facturas_venta SET estado='Anulada' WHERE id=?", (id,))
+    conn.execute('''UPDATE cuentas_cobrar
+        SET estado='Anulada', monto_pagado=0, saldo=0
+        WHERE referencia_tipo='factura_venta' AND referencia_id=? AND estado!='Pagada' ''', (id,))
     conn.commit(); conn.close()
-    flash('Factura anulada.', 'warning')
+    flash('Factura anulada y Cuenta por Cobrar vinculada revertida.', 'warning')
     return redirect(url_for('ventas'))
 
 # ─────────────────────────────────────────────
