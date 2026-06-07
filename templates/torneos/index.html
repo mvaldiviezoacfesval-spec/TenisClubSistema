@@ -6,7 +6,7 @@
 <div class="module-header"><h2><i class="bi bi-trophy me-2"></i>Eventos del club</h2><a href="{{ url_for('torneo_nuevo') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Nuevo evento</a></div>
 <div class="card"><div class="table-responsive"><table class="table table-hover">
   <thead><tr><th>Nombre</th><th>Tipo</th><th>Inicio</th><th>Fin</th><th>Presupuesto</th><th>Estado</th><th></th></tr></thead><tbody>
-  {% for t in torneos %}<tr><td><strong>{{ t.nombre }}</strong><br><small>{{ t.descripcion }}</small></td><td>{{ t.tipo }}</td><td>{{ t.fecha_inicio }}</td><td>{{ t.fecha_fin }}</td><td>${{ "%.2f"|format(t.presupuesto) }}</td><td><span class="badge-estado badge-pendiente">{{ t.estado }}</span></td><td><a href="{{ url_for('torneo_detalle', id=t.id) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-eye"></i></a></td></tr>
+  {% for t in torneos %}<tr><td><strong>{{ t.nombre }}</strong><br><small>{{ t.descripcion }}</small></td><td>{{ t.tipo }}</td><td>{{ t.fecha_inicio }}</td><td>{{ t.fecha_fin }}</td><td>${{ "%.3f"|format(t.presupuesto) }}</td><td><span class="badge-estado badge-pendiente">{{ t.estado }}</span></td><td><a href="{{ url_for('torneo_detalle', id=t.id) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-eye"></i></a></td></tr>
   {% else %}<tr><td colspan="7" class="text-center text-muted py-4">Sin torneos o eventos.</td></tr>{% endfor %}
   </tbody></table></div></div>
 {% endblock %}

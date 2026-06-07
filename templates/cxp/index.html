@@ -31,8 +31,8 @@
   </div>
 </div>
 <div class="row g-3 mb-3">
-  <div class="col-md-4"><div class="kpi-card danger"><div class="kpi-icon"><i class="bi bi-cash-stack"></i></div><div class="kpi-data"><h3>${{ "%.2f"|format(total_pend) }}</h3><p>Saldo pendiente</p></div></div></div>
-  <div class="col-md-4"><div class="kpi-card warning"><div class="kpi-icon"><i class="bi bi-clock-history"></i></div><div class="kpi-data"><h3>${{ "%.2f"|format(vencidas) }}</h3><p>Vencido</p></div></div></div>
+  <div class="col-md-4"><div class="kpi-card danger"><div class="kpi-icon"><i class="bi bi-cash-stack"></i></div><div class="kpi-data"><h3>${{ "%.3f"|format(total_pend) }}</h3><p>Saldo pendiente</p></div></div></div>
+  <div class="col-md-4"><div class="kpi-card warning"><div class="kpi-icon"><i class="bi bi-clock-history"></i></div><div class="kpi-data"><h3>${{ "%.3f"|format(vencidas) }}</h3><p>Vencido</p></div></div></div>
   <div class="col-md-4"><div class="kpi-card"><div class="kpi-icon"><i class="bi bi-list-check"></i></div><div class="kpi-data"><h3>{{ cuentas|length }}</h3><p>Registros filtrados</p></div></div></div>
 </div>
 <div class="card">
@@ -48,14 +48,14 @@
           <td>{{ c.concepto }}<br><small class="text-muted">{{ c.referencia or '' }}</small></td>
           <td>{{ c.fecha_emision }}</td>
           <td class="{% if c.estado!='Pagada' and c.fecha_vencimiento < hoy %}text-danger fw-bold{% endif %}">{{ c.fecha_vencimiento }}</td>
-          <td><strong>${{ "%.2f"|format(c.saldo) }}</strong></td>
+          <td><strong>${{ "%.3f"|format(c.saldo) }}</strong></td>
           <td><span class="badge-estado badge-{% if c.estado=='Pagada' %}pagado{% elif c.estado=='Parcial' %}pendiente{% else %}vencido{% endif %}">{{ c.estado }}</span></td>
           <td>
             {% if c.estado != 'Pagada' %}
             <form method="POST" action="{{ url_for('cxp_pagar', id=c.id) }}" class="d-flex gap-1 flex-wrap">
               <input name="fecha_pago" type="date" value="{{ hoy }}" class="form-control form-control-sm" style="width:130px" required>
               <input name="cuenta_bancaria" value="Banco principal" class="form-control form-control-sm" style="width:145px" required>
-              <input name="pago" type="number" min="0.01" step="0.01" max="{{ c.saldo }}" class="form-control form-control-sm" style="width:100px" required>
+              <input name="pago" type="number" min="0.001" step="0.001" max="{{ c.saldo }}" class="form-control form-control-sm" style="width:100px" required>
               <button class="btn btn-sm btn-success" title="Pagar y enviar al banco"><i class="bi bi-check2"></i></button>
             </form>
             {% endif %}

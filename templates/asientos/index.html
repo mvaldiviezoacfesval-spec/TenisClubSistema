@@ -24,8 +24,8 @@
       {% for a in asientos %}
         <tr>
           <td><strong>{{ a.numero }}</strong></td><td>{{ a.fecha }}</td><td>{{ a.concepto }}</td><td>{{ a.tipo }}</td>
-          <td>${{ "%.2f"|format(a.total_debe) }}</td><td>${{ "%.2f"|format(a.total_haber) }}</td>
-          <td><span class="badge-estado badge-{% if "%.2f"|format(a.total_debe) == "%.2f"|format(a.total_haber) %}pagado{% else %}vencido{% endif %}">{{ 'Cuadrado' if "%.2f"|format(a.total_debe) == "%.2f"|format(a.total_haber) else 'Descuadrado' }}</span></td>
+          <td>${{ "%.3f"|format(a.total_debe) }}</td><td>${{ "%.3f"|format(a.total_haber) }}</td>
+          <td><span class="badge-estado badge-{% if "%.3f"|format(a.total_debe) == "%.3f"|format(a.total_haber) %}pagado{% else %}vencido{% endif %}">{{ 'Cuadrado' if "%.3f"|format(a.total_debe) == "%.3f"|format(a.total_haber) else 'Descuadrado' }}</span></td>
           <td><a href="{{ url_for('asiento_detalle', id=a.id) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-eye"></i></a></td>
         </tr>
       {% else %}

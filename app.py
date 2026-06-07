@@ -80,7 +80,7 @@ def calcular_mora(vencimiento, monto, tasa=0.03):
     venc = date.fromisoformat(vencimiento)
     if hoy_d > venc:
         dias = (hoy_d - venc).days
-        return round(monto * tasa * dias / 30, 2)
+        return round(monto * tasa * dias / 30, 3)
     return 0.0
 
 # ─────────────────────────────────────────────
@@ -116,7 +116,7 @@ def dashboard():
         ing = conn.execute("SELECT COALESCE(SUM(total),0) FROM facturas_venta WHERE fecha LIKE ? AND estado!='Anulada'", (f"{m}%",)).fetchone()[0]
         ing += conn.execute("SELECT COALESCE(SUM(total),0) FROM cuotas WHERE fecha_pago LIKE ? AND estado='Pagada'", (f"{m}%",)).fetchone()[0]
         eg = conn.execute("SELECT COALESCE(SUM(total),0) FROM facturas_compra WHERE fecha LIKE ?", (f"{m}%",)).fetchone()[0]
-        meses_labels.append(label); meses_ingresos.append(round(ing,2)); meses_egresos.append(round(eg,2))
+        meses_labels.append(label); meses_ingresos.append(round(ing, 3)); meses_egresos.append(round(eg, 3))
 
     ultimas_facturas = conn.execute("SELECT * FROM facturas_venta ORDER BY created_at DESC LIMIT 5").fetchall()
     ultimas_cuotas = conn.execute("""
@@ -248,14 +248,14 @@ def venta_nueva():
         items_precio = request.form.getlist('item_precio[]')
         subtotal = sum(float(c)*float(p) for c,p in zip(items_cant, items_precio))
         iva_pct = float(request.form.get('iva_pct', 15))
-        iva = round(subtotal * iva_pct / 100, 2)
-        total = round(subtotal + iva, 2)
+        iva = round(subtotal * iva_pct / 100, 3)
+        total = round(subtotal + iva, 3)
         try:
             cur = conn.execute('''INSERT INTO facturas_venta
                 (numero,fecha,cliente_nombre,subtotal,iva,total,estado,observaciones)
                 VALUES(?,?,?,?,?,?,?,?)''', (
                 numero, request.form['fecha'], request.form['cliente_nombre'],
-                round(subtotal,2), iva, total,
+                round(subtotal, 3), iva, total,
                 request.form.get('estado','Emitida'), request.form.get('observaciones','')
             ))
             fid = cur.lastrowid
@@ -309,14 +309,14 @@ def compra_nueva():
         items_precio = request.form.getlist('item_precio[]')
         subtotal = sum(float(c)*float(p) for c,p in zip(items_cant, items_precio))
         iva_pct = float(request.form.get('iva_pct', 15))
-        iva = round(subtotal * iva_pct / 100, 2)
-        total = round(subtotal + iva, 2)
+        iva = round(subtotal * iva_pct / 100, 3)
+        total = round(subtotal + iva, 3)
         try:
             cur = conn.execute('''INSERT INTO facturas_compra
                 (numero,fecha,proveedor_nombre,subtotal,iva,total,estado,observaciones)
                 VALUES(?,?,?,?,?,?,?,?)''', (
                 request.form['numero'], request.form['fecha'],
-                request.form['proveedor_nombre'], round(subtotal,2), iva, total,
+                request.form['proveedor_nombre'], round(subtotal, 3), iva, total,
                 'Registrada', request.form.get('observaciones','')
             ))
             fid = cur.lastrowid
@@ -723,12 +723,12 @@ def rol_nuevo():
     if request.method == 'POST':
         salario = float(request.form['salario_base'])
         he_horas = float(request.form.get('horas_extra', 0))
-        he_valor = round(salario / 240 * 1.5 * he_horas, 2)
+        he_valor = round(salario / 240 * 1.5 * he_horas, 3)
         bonos = float(request.form.get('bonos', 0))
-        iess_p = round(salario * 0.0945, 2)
-        iess_pat = round(salario * 0.1215, 2)
+        iess_p = round(salario * 0.0945, 3)
+        iess_pat = round(salario * 0.1215, 3)
         otros_desc = float(request.form.get('otros_descuentos', 0))
-        liquido = round(salario + he_valor + bonos - iess_p - otros_desc, 2)
+        liquido = round(salario + he_valor + bonos - iess_p - otros_desc, 3)
         try:
             conn.execute('''INSERT INTO roles_pago
                 (empleado_id,periodo,salario_base,horas_extra,valor_horas_extra,bonos,
@@ -767,9 +767,9 @@ def sri_nueva():
         vg = float(request.form.get('ventas_gravadas', 0))
         ve = float(request.form.get('ventas_exentas', 0))
         cc = float(request.form.get('compras_con_credito', 0))
-        iva_c = round(vg * 0.15, 2)
-        iva_p = round(cc * 0.15, 2)
-        iva_pagar = round(max(iva_c - iva_p, 0), 2)
+        iva_c = round(vg * 0.15, 3)
+        iva_p = round(cc * 0.15, 3)
+        iva_pagar = round(max(iva_c - iva_p, 0), 3)
         ret_emit = float(request.form.get('retenciones_emitidas', 0))
         ret_rec = float(request.form.get('retenciones_recibidas', 0))
         try:
@@ -793,7 +793,7 @@ def sri_nueva():
     vg = conn.execute("SELECT COALESCE(SUM(subtotal),0) FROM facturas_venta WHERE fecha LIKE ? AND estado!='Anulada'", (f"{periodo_def}%",)).fetchone()[0]
     cc = conn.execute("SELECT COALESCE(SUM(subtotal),0) FROM facturas_compra WHERE fecha LIKE ?", (f"{periodo_def}%",)).fetchone()[0]
     conn.close()
-    return render_template('sri/form.html', hoy=hoy(), periodo_def=periodo_def, vg=round(vg,2), cc=round(cc,2))
+    return render_template('sri/form.html', hoy=hoy(), periodo_def=periodo_def, vg=round(vg, 3), cc=round(cc, 3))
 
 @app.route('/sri/<int:id>/presentar', methods=['POST'])
 def sri_presentar(id):
@@ -881,15 +881,15 @@ def proforma_nueva():
         items_precio = request.form.getlist('item_precio[]')
         subtotal = sum(float(c)*float(p) for c,p in zip(items_cant, items_precio))
         iva_pct = float(request.form.get('iva_pct', 15))
-        iva = round(subtotal * iva_pct / 100, 2)
-        total = round(subtotal + iva, 2)
+        iva = round(subtotal * iva_pct / 100, 3)
+        total = round(subtotal + iva, 3)
         try:
             cur = conn.execute('''INSERT INTO proformas
                 (numero,fecha,validez_dias,cliente_nombre,cliente_email,objeto,subtotal,iva,total,estado,observaciones)
                 VALUES(?,?,?,?,?,?,?,?,?,?,?)''', (
                 numero, request.form['fecha'], int(request.form.get('validez_dias',30)),
                 request.form['cliente_nombre'], request.form.get('cliente_email',''),
-                request.form.get('objeto',''), round(subtotal,2), iva, total,
+                request.form.get('objeto',''), round(subtotal, 3), iva, total,
                 'Emitida', request.form.get('observaciones','')
             ))
             pid = cur.lastrowid
@@ -1063,7 +1063,7 @@ def asiento_nuevo():
                 total_haber += haber_val
         if len(detalles) < 2:
             flash('El asiento debe tener al menos dos lineas.', 'danger')
-        elif round(total_debe, 2) != round(total_haber, 2):
+        elif round(total_debe, 3) != round(total_haber, 3):
             flash('El asiento no cuadra: debe y haber deben ser iguales.', 'danger')
         else:
             try:

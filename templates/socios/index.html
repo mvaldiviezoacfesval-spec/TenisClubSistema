@@ -50,7 +50,7 @@
           <td>{{ s.cedula }}</td>
           <td>{{ s.categoria }}</td>
           <td>{{ s.telefono }}</td>
-          <td>${{ "%.2f"|format(s.cuota_mensual) }}</td>
+          <td>${{ "%.3f"|format(s.cuota_mensual) }}</td>
           <td>
             <span class="badge-estado badge-{% if s.estado=='Activo' %}activo{% else %}anulado{% endif %}">
               {{ s.estado }}

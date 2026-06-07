@@ -44,9 +44,9 @@
               <div class="col-md-6"><label class="form-label">Descripción</label>
                 <input type="text" name="item_desc[]" class="form-control" required placeholder="Descripción del producto/servicio"></div>
               <div class="col-md-2"><label class="form-label">Cantidad</label>
-                <input type="number" name="item_cant[]" class="form-control item-cant" step="0.01" value="1" min="0.01" required onchange="calcularTotales()"></div>
+                <input type="number" name="item_cant[]" class="form-control item-cant" step="0.001" value="1" min="0.001" required onchange="calcularTotales()"></div>
               <div class="col-md-2"><label class="form-label">Precio Unit.</label>
-                <input type="number" name="item_precio[]" class="form-control item-precio" step="0.01" value="0" min="0" required onchange="calcularTotales()"></div>
+                <input type="number" name="item_precio[]" class="form-control item-precio" step="0.001" value="0" min="0" required onchange="calcularTotales()"></div>
               <div class="col-md-1"><label class="form-label">Subtotal</label>
                 <input type="text" class="form-control item-sub" readonly style="background:#f8f9fa" value="0.00"></div>
               <div class="col-md-1 d-flex align-items-end">
@@ -60,9 +60,9 @@
       <div class="row justify-content-end">
         <div class="col-md-4">
           <table class="table table-sm table-borderless">
-            <tr><td>Subtotal:</td><td class="text-end"><strong id="lblSubtotal">$0.00</strong></td></tr>
-            <tr><td>IVA:</td><td class="text-end" id="lblIva">$0.00</td></tr>
-            <tr class="summary-row"><td>TOTAL:</td><td class="text-end fs-5"><strong id="lblTotal">$0.00</strong></td></tr>
+            <tr><td>Subtotal:</td><td class="text-end"><strong id="lblSubtotal">$0.000</strong></td></tr>
+            <tr><td>IVA:</td><td class="text-end" id="lblIva">$0.000</td></tr>
+            <tr class="summary-row"><td>TOTAL:</td><td class="text-end fs-5"><strong id="lblTotal">$0.000</strong></td></tr>
           </table>
         </div>
       </div>
@@ -97,14 +97,14 @@ function calcularTotales() {
     const cant = parseFloat(row.querySelector('.item-cant').value) || 0;
     const precio = parseFloat(row.querySelector('.item-precio').value) || 0;
     const sub = cant * precio;
-    row.querySelector('.item-sub').value = sub.toFixed(2);
+    row.querySelector('.item-sub').value = sub.toFixed(3);
     subtotal += sub;
   });
   const ivaPct = parseFloat(document.getElementById('ivaPct').value) || 0;
   const iva = subtotal * ivaPct / 100;
-  document.getElementById('lblSubtotal').textContent = '$' + subtotal.toFixed(2);
-  document.getElementById('lblIva').textContent = '$' + iva.toFixed(2);
-  document.getElementById('lblTotal').textContent = '$' + (subtotal + iva).toFixed(2);
+  document.getElementById('lblSubtotal').textContent = '$' + subtotal.toFixed(3);
+  document.getElementById('lblIva').textContent = '$' + iva.toFixed(3);
+  document.getElementById('lblTotal').textContent = '$' + (subtotal + iva).toFixed(3);
 }
 
 function agregarItem() {

@@ -24,7 +24,7 @@
           <tr><td class="text-muted">Categoría</td><td>{{ socio.categoria }}</td></tr>
           <tr><td class="text-muted">F. Ingreso</td><td>{{ socio.fecha_ingreso }}</td></tr>
           <tr><td class="text-muted">F. Nacimiento</td><td>{{ socio.fecha_nacimiento }}</td></tr>
-          <tr><td class="text-muted">Cuota</td><td><strong>${{ "%.2f"|format(socio.cuota_mensual) }}</strong></td></tr>
+          <tr><td class="text-muted">Cuota</td><td><strong>${{ "%.3f"|format(socio.cuota_mensual) }}</strong></td></tr>
           <tr><td class="text-muted">Estado</td><td>
             <span class="badge-estado badge-{% if socio.estado=='Activo' %}activo{% else %}anulado{% endif %}">{{ socio.estado }}</span>
           </td></tr>
@@ -49,9 +49,9 @@
             <tr>
               <td>{{ c.periodo }}</td>
               <td>{{ c.fecha_vencimiento }}</td>
-              <td>${{ "%.2f"|format(c.monto) }}</td>
-              <td class="{% if c.mora > 0 %}text-danger{% endif %}">${{ "%.2f"|format(c.mora) }}</td>
-              <td><strong>${{ "%.2f"|format(c.total) }}</strong></td>
+              <td>${{ "%.3f"|format(c.monto) }}</td>
+              <td class="{% if c.mora > 0 %}text-danger{% endif %}">${{ "%.3f"|format(c.mora) }}</td>
+              <td><strong>${{ "%.3f"|format(c.total) }}</strong></td>
               <td>
                 <span class="badge-estado badge-{% if c.estado=='Pagada' %}pagado{% elif c.estado=='Pendiente' %}pendiente{% else %}anulado{% endif %}">
                   {{ c.estado }}

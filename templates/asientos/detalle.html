@@ -12,9 +12,9 @@
       {% set total_debe = namespace(v=0) %}{% set total_haber = namespace(v=0) %}
       {% for d in detalles %}
         {% set total_debe.v = total_debe.v + d.debe %}{% set total_haber.v = total_haber.v + d.haber %}
-        <tr><td><code>{{ d.codigo }}</code> {{ d.nombre }}</td><td>{{ d.descripcion }}</td><td>${{ "%.2f"|format(d.debe) }}</td><td>${{ "%.2f"|format(d.haber) }}</td></tr>
+        <tr><td><code>{{ d.codigo }}</code> {{ d.nombre }}</td><td>{{ d.descripcion }}</td><td>${{ "%.3f"|format(d.debe) }}</td><td>${{ "%.3f"|format(d.haber) }}</td></tr>
       {% endfor %}
-      <tr class="summary-row"><td colspan="2">Total</td><td>${{ "%.2f"|format(total_debe.v) }}</td><td>${{ "%.2f"|format(total_haber.v) }}</td></tr>
+      <tr class="summary-row"><td colspan="2">Total</td><td>${{ "%.3f"|format(total_debe.v) }}</td><td>${{ "%.3f"|format(total_haber.v) }}</td></tr>
       </tbody>
     </table>
   </div>

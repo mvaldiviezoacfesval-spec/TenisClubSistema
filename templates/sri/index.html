@@ -6,7 +6,7 @@
 <div class="module-header"><h2><i class="bi bi-file-earmark-ruled me-2"></i>Formularios tributarios</h2><a href="{{ url_for('sri_nueva') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Nueva declaracion</a></div>
 <div class="card"><div class="table-responsive"><table class="table table-hover">
   <thead><tr><th>Periodo</th><th>Tipo</th><th>Formulario</th><th>IVA cobrado</th><th>IVA pagado</th><th>IVA a pagar</th><th>Estado</th><th></th></tr></thead><tbody>
-  {% for d in declaraciones %}<tr><td>{{ d.periodo }}</td><td>{{ d.tipo }}</td><td>{{ d.formulario }}</td><td>${{ "%.2f"|format(d.iva_cobrado) }}</td><td>${{ "%.2f"|format(d.iva_pagado) }}</td><td><strong>${{ "%.2f"|format(d.iva_pagar) }}</strong></td><td><span class="badge-estado badge-{% if d.estado=='Presentada' %}pagado{% else %}pendiente{% endif %}">{{ d.estado }}</span></td><td>{% if d.estado!='Presentada' %}<form method="POST" action="{{ url_for('sri_presentar', id=d.id) }}"><button class="btn btn-sm btn-success">Presentar</button></form>{% endif %}</td></tr>
+  {% for d in declaraciones %}<tr><td>{{ d.periodo }}</td><td>{{ d.tipo }}</td><td>{{ d.formulario }}</td><td>${{ "%.3f"|format(d.iva_cobrado) }}</td><td>${{ "%.3f"|format(d.iva_pagado) }}</td><td><strong>${{ "%.3f"|format(d.iva_pagar) }}</strong></td><td><span class="badge-estado badge-{% if d.estado=='Presentada' %}pagado{% else %}pendiente{% endif %}">{{ d.estado }}</span></td><td>{% if d.estado!='Presentada' %}<form method="POST" action="{{ url_for('sri_presentar', id=d.id) }}"><button class="btn btn-sm btn-success">Presentar</button></form>{% endif %}</td></tr>
   {% else %}<tr><td colspan="8" class="text-center text-muted py-4">Sin declaraciones.</td></tr>{% endfor %}
   </tbody></table></div></div>
 {% endblock %}

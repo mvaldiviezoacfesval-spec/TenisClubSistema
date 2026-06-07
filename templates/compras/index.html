@@ -17,9 +17,9 @@
           <td><strong>{{ f.numero }}</strong></td>
           <td>{{ f.fecha }}</td>
           <td>{{ f.proveedor_nombre }}</td>
-          <td>${{ "%.2f"|format(f.subtotal) }}</td>
-          <td>${{ "%.2f"|format(f.iva) }}</td>
-          <td><strong>${{ "%.2f"|format(f.total) }}</strong></td>
+          <td>${{ "%.3f"|format(f.subtotal) }}</td>
+          <td>${{ "%.3f"|format(f.iva) }}</td>
+          <td><strong>${{ "%.3f"|format(f.total) }}</strong></td>
           <td><span class="badge-estado badge-activo">{{ f.estado }}</span></td>
         </tr>
         {% else %}

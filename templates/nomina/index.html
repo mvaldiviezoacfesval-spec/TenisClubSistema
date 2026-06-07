@@ -10,12 +10,12 @@
 <div class="row g-3">
   <div class="col-lg-5"><div class="card"><div class="card-header"><i class="bi bi-people me-1"></i>Empleados activos</div><div class="table-responsive"><table class="table table-hover">
     <thead><tr><th>Codigo</th><th>Empleado</th><th>Cargo</th><th>Salario</th></tr></thead><tbody>
-    {% for e in empleados %}<tr><td><code>{{ e.codigo }}</code></td><td><strong>{{ e.nombres }} {{ e.apellidos }}</strong><br><small>{{ e.cedula }}</small></td><td>{{ e.cargo }}</td><td>${{ "%.2f"|format(e.salario_base) }}</td></tr>
+    {% for e in empleados %}<tr><td><code>{{ e.codigo }}</code></td><td><strong>{{ e.nombres }} {{ e.apellidos }}</strong><br><small>{{ e.cedula }}</small></td><td>{{ e.cargo }}</td><td>${{ "%.3f"|format(e.salario_base) }}</td></tr>
     {% else %}<tr><td colspan="4" class="text-center text-muted py-4">Sin empleados.</td></tr>{% endfor %}
   </tbody></table></div></div></div>
   <div class="col-lg-7"><div class="card"><div class="card-header"><i class="bi bi-receipt-cutoff me-1"></i>Roles generados</div><div class="table-responsive"><table class="table table-hover">
     <thead><tr><th>Periodo</th><th>Empleado</th><th>Sueldo</th><th>IESS</th><th>Liquido</th><th>Estado</th></tr></thead><tbody>
-    {% for r in roles %}<tr><td>{{ r.periodo }}</td><td>{{ r.emp_nombre }}</td><td>${{ "%.2f"|format(r.salario_base) }}</td><td>${{ "%.2f"|format(r.iess_personal) }}</td><td><strong>${{ "%.2f"|format(r.liquido_recibir) }}</strong></td><td><span class="badge-estado badge-pagado">{{ r.estado }}</span></td></tr>
+    {% for r in roles %}<tr><td>{{ r.periodo }}</td><td>{{ r.emp_nombre }}</td><td>${{ "%.3f"|format(r.salario_base) }}</td><td>${{ "%.3f"|format(r.iess_personal) }}</td><td><strong>${{ "%.3f"|format(r.liquido_recibir) }}</strong></td><td><span class="badge-estado badge-pagado">{{ r.estado }}</span></td></tr>
     {% else %}<tr><td colspan="6" class="text-center text-muted py-4">Sin roles generados.</td></tr>{% endfor %}
   </tbody></table></div></div></div>
 </div>

@@ -19,7 +19,7 @@
           <td>{{ n.cliente_nombre }}</td>
           <td><code>{{ n.factura_ref or '—' }}</code></td>
           <td>{{ n.motivo[:40] }}</td>
-          <td><strong>${{ "%.2f"|format(n.total) }}</strong></td>
+          <td><strong>${{ "%.3f"|format(n.total) }}</strong></td>
           <td>{{ n.tipo }}</td>
           <td><span class="badge-estado badge-activo">{{ n.estado }}</span></td>
         </tr>

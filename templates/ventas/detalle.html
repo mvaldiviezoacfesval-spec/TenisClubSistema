@@ -39,15 +39,15 @@
             <td>{{ loop.index }}</td>
             <td>{{ it.descripcion }}</td>
             <td class="text-end">{{ it.cantidad }}</td>
-            <td class="text-end">${{ "%.2f"|format(it.precio_unitario) }}</td>
-            <td class="text-end">${{ "%.2f"|format(it.subtotal) }}</td>
+            <td class="text-end">${{ "%.3f"|format(it.precio_unitario) }}</td>
+            <td class="text-end">${{ "%.3f"|format(it.subtotal) }}</td>
           </tr>
           {% endfor %}
         </tbody>
         <tfoot>
-          <tr><td colspan="4" class="text-end">Subtotal:</td><td class="text-end">${{ "%.2f"|format(factura.subtotal) }}</td></tr>
-          <tr><td colspan="4" class="text-end">IVA:</td><td class="text-end">${{ "%.2f"|format(factura.iva) }}</td></tr>
-          <tr class="summary-row"><td colspan="4" class="text-end fw-bold">TOTAL:</td><td class="text-end fw-bold fs-5">${{ "%.2f"|format(factura.total) }}</td></tr>
+          <tr><td colspan="4" class="text-end">Subtotal:</td><td class="text-end">${{ "%.3f"|format(factura.subtotal) }}</td></tr>
+          <tr><td colspan="4" class="text-end">IVA:</td><td class="text-end">${{ "%.3f"|format(factura.iva) }}</td></tr>
+          <tr class="summary-row"><td colspan="4" class="text-end fw-bold">TOTAL:</td><td class="text-end fw-bold fs-5">${{ "%.3f"|format(factura.total) }}</td></tr>
         </tfoot>
       </table>
     </div>

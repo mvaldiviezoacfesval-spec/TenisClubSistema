@@ -8,8 +8,8 @@
   <a href="{{ url_for('cxc_nueva') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Nueva cuenta</a>
 </div>
 <div class="row g-3 mb-3">
-  <div class="col-md-4"><div class="kpi-card"><div class="kpi-icon"><i class="bi bi-wallet2"></i></div><div class="kpi-data"><h3>${{ "%.2f"|format(total_pend) }}</h3><p>Saldo pendiente</p></div></div></div>
-  <div class="col-md-4"><div class="kpi-card danger"><div class="kpi-icon"><i class="bi bi-exclamation-triangle"></i></div><div class="kpi-data"><h3>${{ "%.2f"|format(vencidas) }}</h3><p>Vencido</p></div></div></div>
+  <div class="col-md-4"><div class="kpi-card"><div class="kpi-icon"><i class="bi bi-wallet2"></i></div><div class="kpi-data"><h3>${{ "%.3f"|format(total_pend) }}</h3><p>Saldo pendiente</p></div></div></div>
+  <div class="col-md-4"><div class="kpi-card danger"><div class="kpi-icon"><i class="bi bi-exclamation-triangle"></i></div><div class="kpi-data"><h3>${{ "%.3f"|format(vencidas) }}</h3><p>Vencido</p></div></div></div>
   <div class="col-md-4"><div class="kpi-card success"><div class="kpi-icon"><i class="bi bi-list-check"></i></div><div class="kpi-data"><h3>{{ cuentas|length }}</h3><p>Registros</p></div></div></div>
 </div>
 <div class="card">
@@ -22,12 +22,12 @@
         <tr>
           <td><strong>{{ c.numero }}</strong></td><td>{{ c.cliente_nombre }}</td><td>{{ c.concepto }}</td><td>{{ c.fecha_emision }}</td>
           <td class="{% if c.estado!='Pagada' and c.fecha_vencimiento < hoy %}text-danger fw-bold{% endif %}">{{ c.fecha_vencimiento }}</td>
-          <td><strong>${{ "%.2f"|format(c.saldo) }}</strong></td>
+          <td><strong>${{ "%.3f"|format(c.saldo) }}</strong></td>
           <td><span class="badge-estado badge-{% if c.estado=='Pagada' %}pagado{% elif c.estado=='Parcial' %}pendiente{% else %}vencido{% endif %}">{{ c.estado }}</span></td>
           <td>
             {% if c.estado != 'Pagada' %}
             <form method="POST" action="{{ url_for('cxc_abonar', id=c.id) }}" class="d-flex gap-1">
-              <input name="abono" type="number" min="0.01" step="0.01" max="{{ c.saldo }}" class="form-control form-control-sm" required>
+              <input name="abono" type="number" min="0.001" step="0.001" max="{{ c.saldo }}" class="form-control form-control-sm" required>
               <button class="btn btn-sm btn-success"><i class="bi bi-check2"></i></button>
             </form>
             {% endif %}

@@ -12,7 +12,7 @@
 {% if cuenta %}
 <div class="card"><div class="card-header"><code>{{ cuenta.codigo }}</code> {{ cuenta.nombre }} - Naturaleza {{ cuenta.naturaleza }}</div><div class="table-responsive"><table class="table table-hover">
   <thead><tr><th>Fecha</th><th>Asiento</th><th>Concepto</th><th>Detalle</th><th>Debe</th><th>Haber</th><th>Saldo</th></tr></thead>
-  <tbody>{% for mov, saldo_linea in filas %}<tr><td>{{ mov.fecha }}</td><td>{{ mov.numero }}</td><td>{{ mov.concepto }}</td><td>{{ mov.descripcion }}</td><td>${{ "%.2f"|format(mov.debe) }}</td><td>${{ "%.2f"|format(mov.haber) }}</td><td><strong>${{ "%.2f"|format(saldo_linea) }}</strong></td></tr>{% else %}<tr><td colspan="7" class="text-center text-muted py-4">Sin movimientos para esta cuenta.</td></tr>{% endfor %}<tr class="summary-row"><td colspan="6">Saldo final</td><td>${{ "%.2f"|format(saldo) }}</td></tr></tbody>
+  <tbody>{% for mov, saldo_linea in filas %}<tr><td>{{ mov.fecha }}</td><td>{{ mov.numero }}</td><td>{{ mov.concepto }}</td><td>{{ mov.descripcion }}</td><td>${{ "%.3f"|format(mov.debe) }}</td><td>${{ "%.3f"|format(mov.haber) }}</td><td><strong>${{ "%.3f"|format(saldo_linea) }}</strong></td></tr>{% else %}<tr><td colspan="7" class="text-center text-muted py-4">Sin movimientos para esta cuenta.</td></tr>{% endfor %}<tr class="summary-row"><td colspan="6">Saldo final</td><td>${{ "%.3f"|format(saldo) }}</td></tr></tbody>
 </table></div></div>
 {% endif %}
 {% endblock %}

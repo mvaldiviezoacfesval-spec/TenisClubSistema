@@ -31,9 +31,9 @@
           <td><strong>{{ f.numero }}</strong></td>
           <td>{{ f.fecha }}</td>
           <td>{{ f.cliente_nombre }}</td>
-          <td>${{ "%.2f"|format(f.subtotal) }}</td>
-          <td>${{ "%.2f"|format(f.iva) }}</td>
-          <td><strong>${{ "%.2f"|format(f.total) }}</strong></td>
+          <td>${{ "%.3f"|format(f.subtotal) }}</td>
+          <td>${{ "%.3f"|format(f.iva) }}</td>
+          <td><strong>${{ "%.3f"|format(f.total) }}</strong></td>
           <td><span class="badge-estado badge-{% if f.estado=='Emitida' %}activo{% elif f.estado=='Anulada' %}anulado{% else %}pendiente{% endif %}">{{ f.estado }}</span></td>
           <td>
             <a href="{{ url_for('venta_detalle', id=f.id) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-eye"></i></a>

@@ -19,7 +19,7 @@
     <div class="kpi-card gold">
       <div class="kpi-icon" style="background:#fff3cd"><i class="bi bi-cash-stack" style="color:#856404;font-size:22px"></i></div>
       <div class="kpi-data">
-        <h3>${{ "%.2f"|format(total_ingresos) }}</h3>
+        <h3>${{ "%.3f"|format(total_ingresos) }}</h3>
         <p>Ingresos del Mes</p>
       </div>
     </div>
@@ -28,7 +28,7 @@
     <div class="kpi-card danger">
       <div class="kpi-icon" style="background:#f8d7da"><i class="bi bi-cart-x" style="color:#721c24;font-size:22px"></i></div>
       <div class="kpi-data">
-        <h3>${{ "%.2f"|format(eg_mes) }}</h3>
+        <h3>${{ "%.3f"|format(eg_mes) }}</h3>
         <p>Egresos del Mes</p>
       </div>
     </div>
@@ -39,7 +39,7 @@
         <i class="bi bi-graph-up-arrow" style="color:{% if total_ingresos - eg_mes >= 0 %}#155724{% else %}#721c24{% endif %};font-size:22px"></i>
       </div>
       <div class="kpi-data">
-        <h3>${{ "%.2f"|format(total_ingresos - eg_mes) }}</h3>
+        <h3>${{ "%.3f"|format(total_ingresos - eg_mes) }}</h3>
         <p>Utilidad del Mes</p>
       </div>
     </div>
@@ -60,7 +60,7 @@
     <div class="kpi-card">
       <div class="kpi-icon" style="background:#cce5ff"><i class="bi bi-arrow-down-circle" style="color:#004085;font-size:22px"></i></div>
       <div class="kpi-data">
-        <h3>${{ "%.2f"|format(cxc_total) }}</h3>
+        <h3>${{ "%.3f"|format(cxc_total) }}</h3>
         <p>Por Cobrar</p>
       </div>
     </div>
@@ -69,7 +69,7 @@
     <div class="kpi-card danger">
       <div class="kpi-icon" style="background:#f8d7da"><i class="bi bi-arrow-up-circle" style="color:#721c24;font-size:22px"></i></div>
       <div class="kpi-data">
-        <h3>${{ "%.2f"|format(cxp_total) }}</h3>
+        <h3>${{ "%.3f"|format(cxp_total) }}</h3>
         <p>Por Pagar</p>
       </div>
     </div>
@@ -124,7 +124,7 @@
               <td><a href="{{ url_for('venta_detalle', id=f.id) }}" class="text-decoration-none fw-semibold">{{ f.numero }}</a></td>
               <td>{{ f.cliente_nombre[:25] }}</td>
               <td>{{ f.fecha }}</td>
-              <td><strong>${{ "%.2f"|format(f.total) }}</strong></td>
+              <td><strong>${{ "%.3f"|format(f.total) }}</strong></td>
               <td><span class="badge-estado badge-{% if f.estado=='Emitida' %}activo{% elif f.estado=='Anulada' %}anulado{% else %}pendiente{% endif %}">{{ f.estado }}</span></td>
             </tr>
             {% else %}
@@ -147,7 +147,7 @@
               <td>{{ c.socio_nombre[:22] }}</td>
               <td>{{ c.periodo }}</td>
               <td class="{% if c.fecha_vencimiento < now.strftime('%Y-%m-%d') %}text-danger fw-bold{% endif %}">{{ c.fecha_vencimiento }}</td>
-              <td><strong>${{ "%.2f"|format(c.total) }}</strong></td>
+              <td><strong>${{ "%.3f"|format(c.total) }}</strong></td>
             </tr>
             {% else %}
             <tr><td colspan="4" class="text-center text-muted py-3">Sin cuotas pendientes</td></tr>

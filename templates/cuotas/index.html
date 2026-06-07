@@ -39,9 +39,9 @@
           <td><code>{{ c.socio_codigo }}</code></td>
           <td>{{ c.periodo }}</td>
           <td class="{% if c.estado=='Pendiente' and c.fecha_vencimiento < now.strftime('%Y-%m-%d') %}text-danger fw-bold{% endif %}">{{ c.fecha_vencimiento }}</td>
-          <td>${{ "%.2f"|format(c.monto) }}</td>
-          <td class="{% if c.mora > 0 %}text-danger{% endif %}">${{ "%.2f"|format(c.mora) }}</td>
-          <td><strong>${{ "%.2f"|format(c.total) }}</strong></td>
+          <td>${{ "%.3f"|format(c.monto) }}</td>
+          <td class="{% if c.mora > 0 %}text-danger{% endif %}">${{ "%.3f"|format(c.mora) }}</td>
+          <td><strong>${{ "%.3f"|format(c.total) }}</strong></td>
           <td>
             <span class="badge-estado badge-{% if c.estado=='Pagada' %}pagado{% elif c.estado=='Pendiente' %}pendiente{% else %}anulado{% endif %}">
               {{ c.estado }}
@@ -59,7 +59,7 @@
                   <div class="modal-header"><h6 class="modal-title">Registrar Pago</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
                   <form method="POST" action="{{ url_for('cuota_pagar', id=c.id) }}">
                     <div class="modal-body">
-                      <p class="mb-2"><strong>{{ c.socio_nombre }}</strong><br>Período: {{ c.periodo }}<br>Total: <strong>${{ "%.2f"|format(c.total) }}</strong></p>
+                      <p class="mb-2"><strong>{{ c.socio_nombre }}</strong><br>Período: {{ c.periodo }}<br>Total: <strong>${{ "%.3f"|format(c.total) }}</strong></p>
                       <label class="form-label">Método de Pago</label>
                       <select name="metodo" class="form-select form-select-sm mb-2">
                         <option>Efectivo</option><option>Transferencia</option><option>Depósito</option><option>Cheque</option>
