@@ -601,6 +601,22 @@ def bancaria_conciliar(id):
 # ─────────────────────────────────────────────
 #  INVENTARIO  (Módulo 10)
 # ─────────────────────────────────────────────
+@app.route('/bancaria/<int:id>/desconciliar', methods=['POST'])
+def bancaria_desconciliar(id):
+    conn = get_db()
+    conn.execute("UPDATE movimientos_bancarios SET conciliado=0 WHERE id=?", (id,))
+    conn.commit(); conn.close()
+    flash('Conciliacion quitada. El movimiento vuelve a pendientes.', 'warning')
+    return redirect(url_for('bancaria', mes=request.form.get('mes') or datetime.now().strftime('%Y-%m')))
+
+@app.route('/bancaria/<int:id>/eliminar', methods=['POST'])
+def bancaria_eliminar(id):
+    conn = get_db()
+    conn.execute("DELETE FROM movimientos_bancarios WHERE id=?", (id,))
+    conn.commit(); conn.close()
+    flash('Movimiento bancario eliminado.', 'warning')
+    return redirect(url_for('bancaria', mes=request.form.get('mes') or datetime.now().strftime('%Y-%m')))
+
 @app.route('/inventario')
 def inventario():
     conn = get_db()

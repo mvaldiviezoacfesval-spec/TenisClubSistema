@@ -24,6 +24,7 @@ body {
 #sidebar {
   width: 260px;
   min-height: 100vh;
+  height: 100vh;
   background: var(--verde-oscuro);
   position: fixed;
   top: 0; left: 0;
@@ -32,6 +33,25 @@ body {
   flex-direction: column;
   transition: width 0.3s;
   overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(201,168,76,0.75) rgba(255,255,255,0.08);
+}
+
+#sidebar::-webkit-scrollbar,
+#sidebar nav::-webkit-scrollbar {
+  width: 8px;
+}
+
+#sidebar::-webkit-scrollbar-thumb,
+#sidebar nav::-webkit-scrollbar-thumb {
+  background: rgba(201,168,76,0.75);
+  border-radius: 8px;
+}
+
+#sidebar::-webkit-scrollbar-track,
+#sidebar nav::-webkit-scrollbar-track {
+  background: rgba(255,255,255,0.08);
 }
 
 #sidebar .brand {
@@ -65,6 +85,7 @@ body {
 
 #sidebar nav {
   flex: 1;
+  min-height: 0;
   padding: 12px 0;
   overflow-y: auto;
 }
