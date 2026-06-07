@@ -123,6 +123,7 @@ def init_db():
         subtotal REAL NOT NULL,
         FOREIGN KEY(factura_id) REFERENCES facturas_venta(id)
     )''')
+    _add_column_if_missing(c, 'factura_venta_items', 'cuenta_ingreso_id', 'INTEGER')
 
     # --- FACTURAS COMPRA ---
     c.execute('''CREATE TABLE IF NOT EXISTS facturas_compra (

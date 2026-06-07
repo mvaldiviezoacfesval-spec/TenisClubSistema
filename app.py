@@ -298,6 +298,10 @@ def venta_nueva():
         items_desc = request.form.getlist('item_desc[]')
         items_cant = request.form.getlist('item_cant[]')
         items_precio = request.form.getlist('item_precio[]')
+        items_cuenta = request.form.getlist('item_cuenta_id[]')
+        if len(items_cuenta) < len(items_desc):
+            cuenta_default = str(cuenta_id(conn, '4.1.03'))
+            items_cuenta += [cuenta_default] * (len(items_desc) - len(items_cuenta))
         subtotal = sum(float(c)*float(p) for c,p in zip(items_cant, items_precio))
         iva_pct = float(request.form.get('iva_pct', 15))
         iva = round(subtotal * iva_pct / 100, 3)
@@ -311,11 +315,15 @@ def venta_nueva():
                 request.form.get('estado','Emitida'), request.form.get('observaciones','')
             ))
             fid = cur.lastrowid
-            for d,c,p in zip(items_desc, items_cant, items_precio):
+            ingresos_por_cuenta = {}
+            for d,c,p,cuenta_ingreso_id in zip(items_desc, items_cant, items_precio, items_cuenta):
                 if d.strip():
+                    cuenta_ingreso_id = int(cuenta_ingreso_id or cuenta_id(conn, '4.1.03'))
+                    sub_item = round(float(c)*float(p), 3)
                     conn.execute('''INSERT INTO factura_venta_items
-                        (factura_id,descripcion,cantidad,precio_unitario,subtotal)
-                        VALUES(?,?,?,?,?)''', (fid, d, float(c), float(p), float(c)*float(p)))
+                        (factura_id,descripcion,cantidad,precio_unitario,subtotal,cuenta_ingreso_id)
+                        VALUES(?,?,?,?,?,?)''', (fid, d, float(c), float(p), sub_item, cuenta_ingreso_id))
+                    ingresos_por_cuenta[cuenta_ingreso_id] = ingresos_por_cuenta.get(cuenta_ingreso_id, 0) + sub_item
             if request.form.get('estado','Emitida') != 'Anulada':
                 conn.execute('''INSERT INTO cuentas_cobrar
                     (numero,fecha_emision,fecha_vencimiento,cliente_nombre,concepto,
@@ -326,12 +334,14 @@ def venta_nueva():
                     request.form['cliente_nombre'], f"Factura de venta {numero}",
                     total, total, 'Pendiente', numero, 'factura_venta', fid
                 ))
+                detalles_asiento = [('1.1.04', f"CxC factura {numero}", total, 0)]
+                for cuenta_ingreso_id, monto in ingresos_por_cuenta.items():
+                    cuenta = conn.execute("SELECT codigo, nombre FROM plan_cuentas WHERE id=?", (cuenta_ingreso_id,)).fetchone()
+                    if cuenta:
+                        detalles_asiento.append((cuenta['codigo'], f"{cuenta['nombre']} factura {numero}", 0, round(monto, 3)))
+                detalles_asiento.append(('2.1.02', f"IVA factura {numero}", 0, iva))
                 crear_asiento_automatico(conn, request.form['fecha'], f"Venta {numero} - {request.form['cliente_nombre']}",
-                    'factura_venta', fid, [
-                    ('1.1.04', f"CxC factura {numero}", total, 0),
-                    ('4.1.03', f"Ingreso factura {numero}", 0, round(subtotal, 3)),
-                    ('2.1.02', f"IVA factura {numero}", 0, iva),
-                ])
+                    'factura_venta', fid, detalles_asiento)
             conn.commit()
             flash(f'Factura {numero} registrada y cargada automaticamente en Cuentas por Cobrar.', 'success')
             return redirect(url_for('ventas'))
@@ -340,13 +350,21 @@ def venta_nueva():
         finally:
             conn.close()
     numero_preview = sig_numero('facturas_venta', 'numero', 'FV')
-    return render_template('ventas/form.html', numero=numero_preview, hoy=hoy())
+    conn = get_db()
+    cuentas_ingreso = conn.execute("SELECT * FROM plan_cuentas WHERE activa=1 AND tipo='Ingreso' AND nivel>=3 ORDER BY codigo").fetchall()
+    conn.close()
+    return render_template('ventas/form.html', numero=numero_preview, hoy=hoy(), cuentas_ingreso=cuentas_ingreso)
 
 @app.route('/ventas/<int:id>')
 def venta_detalle(id):
     conn = get_db()
     factura = conn.execute("SELECT * FROM facturas_venta WHERE id=?", (id,)).fetchone()
-    items = conn.execute("SELECT * FROM factura_venta_items WHERE factura_id=?", (id,)).fetchall()
+    items = conn.execute('''
+        SELECT i.*, p.codigo as cuenta_codigo, p.nombre as cuenta_nombre
+        FROM factura_venta_items i
+        LEFT JOIN plan_cuentas p ON p.id=i.cuenta_ingreso_id
+        WHERE i.factura_id=?
+    ''', (id,)).fetchall()
     conn.close()
     return render_template('ventas/detalle.html', factura=factura, items=items)
 
