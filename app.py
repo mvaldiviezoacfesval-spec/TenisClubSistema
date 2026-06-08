@@ -765,10 +765,21 @@ def revision_documentos():
         WHERE f.estado!='Anulada'
         ORDER BY f.fecha DESC, f.id DESC
     ''').fetchall()
+    asientos_revision = conn.execute('''
+        SELECT a.*,
+               COALESCE(SUM(d.debe),0) as total_debe,
+               COALESCE(SUM(d.haber),0) as total_haber
+        FROM asientos a
+        LEFT JOIN asiento_detalles d ON d.asiento_id=a.id
+        GROUP BY a.id
+        ORDER BY a.fecha DESC, a.id DESC
+        LIMIT 100
+    ''').fetchall()
     conn.close()
     return render_template('revision_documentos/index.html', tipo=tipo, pagos_cxp=pagos_cxp,
                            cuentas_cobrar=cuentas_cobrar, facturas_venta=facturas_venta,
-                           facturas_compra=facturas_compra, cuentas_pagar=cuentas_pagar)
+                           facturas_compra=facturas_compra, cuentas_pagar=cuentas_pagar,
+                           asientos_revision=asientos_revision)
 
 @app.route('/revision-documentos/cxc/<int:cuenta_id>/anular', methods=['POST'])
 def revision_anular_cxc(cuenta_id):
