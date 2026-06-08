@@ -732,10 +732,13 @@ def revision_anular_cxc(cuenta_id):
         conn.close()
         flash('La Cuenta por Cobrar ya esta anulada o no existe.', 'warning')
         return redirect(url_for('revision_documentos', tipo='cxc'))
-    if (cuenta['monto_pagado'] or 0) > 0:
-        conn.close()
-        flash('No se puede anular una CxC con abonos registrados. Primero revisa y reversa los cobros relacionados.', 'danger')
-        return redirect(url_for('revision_documentos', tipo='cxc'))
+    monto_pagado = round(cuenta['monto_pagado'] or 0, 3)
+    if monto_pagado > 0:
+        crear_asiento_automatico(conn, hoy(), f"Anulacion cobro CxC {cuenta['numero']}",
+            'anulacion_cobro_cxc', cuenta_id, [
+            ('1.1.04', f"Reverso cobro CxC {cuenta['numero']}", monto_pagado, 0),
+            ('1.1.02', f"Reverso banco CxC {cuenta['numero']}", 0, monto_pagado),
+        ])
 
     if cuenta['referencia_tipo'] == 'factura_venta' and cuenta['referencia_id']:
         factura = conn.execute("SELECT * FROM facturas_venta WHERE id=?", (cuenta['referencia_id'],)).fetchone()
@@ -751,7 +754,7 @@ def revision_anular_cxc(cuenta_id):
     conn.execute("UPDATE cuentas_cobrar SET estado='Anulada', monto_pagado=0, saldo=0 WHERE id=?", (cuenta_id,))
     conn.commit()
     conn.close()
-    flash('Cuenta por Cobrar anulada correctamente.', 'success')
+    flash('Cuenta por Cobrar anulada correctamente con reverso de cobros y asiento contable.', 'success')
     return redirect(url_for('revision_documentos', tipo='cxc'))
 
 @app.route('/revision-documentos/cxp/<int:cuenta_id>/anular', methods=['POST'])
@@ -794,9 +797,12 @@ def revision_anular_factura_venta(factura_id):
         return redirect(url_for('revision_documentos', tipo='ventas'))
     cxc = conn.execute("SELECT * FROM cuentas_cobrar WHERE referencia_tipo='factura_venta' AND referencia_id=?", (factura_id,)).fetchone()
     if cxc and (cxc['monto_pagado'] or 0) > 0:
-        conn.close()
-        flash('No se puede anular una factura con abonos en Cuentas por Cobrar. Primero reversa los cobros relacionados.', 'danger')
-        return redirect(url_for('revision_documentos', tipo='ventas'))
+        monto_pagado = round(cxc['monto_pagado'] or 0, 3)
+        crear_asiento_automatico(conn, hoy(), f"Anulacion cobro CxC {cxc['numero']}",
+            'anulacion_cobro_cxc', cxc['id'], [
+            ('1.1.04', f"Reverso cobro CxC {cxc['numero']}", monto_pagado, 0),
+            ('1.1.02', f"Reverso banco CxC {cxc['numero']}", 0, monto_pagado),
+        ])
 
     conn.execute("UPDATE facturas_venta SET estado='Anulada' WHERE id=?", (factura_id,))
     conn.execute('''UPDATE cuentas_cobrar

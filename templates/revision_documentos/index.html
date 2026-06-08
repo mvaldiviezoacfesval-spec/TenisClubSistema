@@ -46,8 +46,8 @@
           <td>${{ "%.3f"|format(c.monto_pagado or 0) }}</td>
           <td><span class="badge-estado badge-{% if c.estado == 'Pagada' %}pagado{% elif c.estado == 'Parcial' %}pendiente{% else %}vencido{% endif %}">{{ c.estado }}</span></td>
           <td class="text-end">
-            <form method="POST" action="{{ url_for('revision_anular_cxc', cuenta_id=c.id) }}" onsubmit="return confirm('Seguro que deseas anular esta Cuenta por Cobrar? Si viene de una factura, tambien se anulara la factura y se reversara el asiento.');">
-              <button class="btn btn-sm btn-outline-danger" {% if c.monto_pagado and c.monto_pagado > 0 %}disabled title="Tiene abonos registrados"{% endif %}>
+            <form method="POST" action="{{ url_for('revision_anular_cxc', cuenta_id=c.id) }}" onsubmit="return confirm('Seguro que deseas anular esta Cuenta por Cobrar? Si tiene cobros, tambien se reversaran contra Bancos.');">
+              <button class="btn btn-sm btn-outline-danger">
                 <i class="bi bi-x-circle me-1"></i>Anular
               </button>
             </form>
@@ -107,8 +107,8 @@
           <td>{{ f.cxc_numero or 'Sin CxC' }}</td>
           <td><span class="badge-estado badge-{% if f.estado == 'Emitida' %}pagado{% else %}pendiente{% endif %}">{{ f.estado }}</span></td>
           <td class="text-end">
-            <form method="POST" action="{{ url_for('revision_anular_factura_venta', factura_id=f.id) }}" onsubmit="return confirm('Seguro que deseas anular esta factura de venta? Se anulara la CxC vinculada y se reversara el asiento.');">
-              <button class="btn btn-sm btn-outline-danger" {% if f.cxc_saldo is not none and f.cxc_saldo < f.total %}disabled title="La CxC tiene abonos registrados"{% endif %}>
+            <form method="POST" action="{{ url_for('revision_anular_factura_venta', factura_id=f.id) }}" onsubmit="return confirm('Seguro que deseas anular esta factura de venta? Si ya fue cobrada, tambien se reversara el cobro contra Bancos.');">
+              <button class="btn btn-sm btn-outline-danger">
                 <i class="bi bi-x-circle me-1"></i>Anular
               </button>
             </form>
