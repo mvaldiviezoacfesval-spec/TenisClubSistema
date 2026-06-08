@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block title %}Nuevo Item de Venta{% endblock %}
+{% block icon %}tag{% endblock %}
+{% block page_title %}Nuevo Item de Venta{% endblock %}
+{% block content %}
+<div class="module-header">
+  <h2><i class="bi bi-tag me-2"></i>Nuevo item preestablecido</h2>
+  <a href="{{ url_for('items_venta') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Volver</a>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <form method="POST" class="row g-3">
+      <div class="col-md-3">
+        <label class="form-label">Codigo</label>
+        <input name="codigo" class="form-control" placeholder="Opcional">
+      </div>
+      <div class="col-md-5">
+        <label class="form-label">Descripcion *</label>
+        <input name="descripcion" class="form-control" required placeholder="Ej. Alquiler de cancha">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Precio unitario</label>
+        <input name="precio_unitario" type="number" step="0.001" min="0" value="0" class="form-control">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Estado</label>
+        <select name="estado" class="form-select">
+          <option>Activo</option>
+          <option>Inactivo</option>
+        </select>
+      </div>
+      <div class="col-md-12">
+        <label class="form-label">Cuenta ingreso *</label>
+        <select name="cuenta_ingreso_id" class="form-select" required>
+          {% for c in cuentas_ingreso %}
+          <option value="{{ c.id }}" {% if c.codigo == '4.1.03' %}selected{% endif %}>{{ c.codigo }} - {{ c.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-12">
+        <button class="btn btn-primary"><i class="bi bi-save me-1"></i>Guardar</button>
+        <a href="{{ url_for('items_venta') }}" class="btn btn-outline-secondary ms-2">Cancelar</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

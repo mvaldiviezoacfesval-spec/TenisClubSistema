@@ -290,6 +290,44 @@ def ventas():
     conn.close()
     return render_template('ventas/index.html', facturas=facturas, q=q)
 
+@app.route('/items-venta')
+def items_venta():
+    conn = get_db()
+    items = conn.execute('''
+        SELECT i.*, p.codigo as cuenta_codigo, p.nombre as cuenta_nombre
+        FROM items_venta i
+        LEFT JOIN plan_cuentas p ON p.id=i.cuenta_ingreso_id
+        ORDER BY i.descripcion
+    ''').fetchall()
+    conn.close()
+    return render_template('items_venta/index.html', items=items)
+
+@app.route('/items-venta/nuevo', methods=['GET','POST'])
+def item_venta_nuevo():
+    conn = get_db()
+    cuentas_ingreso = conn.execute("SELECT * FROM plan_cuentas WHERE activa=1 AND tipo='Ingreso' AND nivel>=3 ORDER BY codigo").fetchall()
+    if request.method == 'POST':
+        try:
+            conn.execute('''INSERT INTO items_venta
+                (codigo,descripcion,precio_unitario,cuenta_ingreso_id,estado)
+                VALUES(?,?,?,?,?)''', (
+                request.form.get('codigo') or None,
+                request.form['descripcion'],
+                float(request.form.get('precio_unitario',0) or 0),
+                int(request.form['cuenta_ingreso_id']),
+                request.form.get('estado','Activo')
+            ))
+            conn.commit()
+            flash('Item de venta registrado.', 'success')
+            return redirect(url_for('items_venta'))
+        except Exception as e:
+            flash(f'Error: {e}', 'danger')
+        finally:
+            conn.close()
+    else:
+        conn.close()
+    return render_template('items_venta/form.html', cuentas_ingreso=cuentas_ingreso)
+
 @app.route('/ventas/nueva', methods=['GET','POST'])
 def venta_nueva():
     if request.method == 'POST':
@@ -352,8 +390,16 @@ def venta_nueva():
     numero_preview = sig_numero('facturas_venta', 'numero', 'FV')
     conn = get_db()
     cuentas_ingreso = conn.execute("SELECT * FROM plan_cuentas WHERE activa=1 AND tipo='Ingreso' AND nivel>=3 ORDER BY codigo").fetchall()
+    items_preestablecidos = conn.execute('''
+        SELECT i.*, p.codigo as cuenta_codigo
+        FROM items_venta i
+        LEFT JOIN plan_cuentas p ON p.id=i.cuenta_ingreso_id
+        WHERE i.estado='Activo'
+        ORDER BY i.descripcion
+    ''').fetchall()
     conn.close()
-    return render_template('ventas/form.html', numero=numero_preview, hoy=hoy(), cuentas_ingreso=cuentas_ingreso)
+    return render_template('ventas/form.html', numero=numero_preview, hoy=hoy(),
+                           cuentas_ingreso=cuentas_ingreso, items_preestablecidos=items_preestablecidos)
 
 @app.route('/ventas/<int:id>')
 def venta_detalle(id):
@@ -765,10 +811,19 @@ def revision_anular_cxp(cuenta_id):
         conn.close()
         flash('La Cuenta por Pagar ya esta anulada o no existe.', 'warning')
         return redirect(url_for('revision_documentos', tipo='cxp'))
-    if (cuenta['monto_pagado'] or 0) > 0:
-        conn.close()
-        flash('No se puede anular una CxP con pagos registrados. Primero anula los pagos relacionados en Pagos CxP.', 'danger')
-        return redirect(url_for('revision_documentos', tipo='cxp'))
+    pagos = conn.execute('''
+        SELECT * FROM movimientos_bancarios
+        WHERE referencia=? AND tipo='Egreso' AND descripcion LIKE 'Pago CxP %'
+    ''', (cuenta['numero'],)).fetchall()
+    monto_pagado = round(cuenta['monto_pagado'] or 0, 3)
+    if monto_pagado > 0:
+        crear_asiento_automatico(conn, hoy(), f"Anulacion pagos CxP {cuenta['numero']}",
+            'anulacion_pago_cxp', cuenta_id, [
+            ('1.1.02', f"Reverso banco {cuenta['numero']}", monto_pagado, 0),
+            ('2.1.01', f"Reverso pagos {cuenta['numero']}", 0, monto_pagado),
+        ])
+        for pago in pagos:
+            conn.execute("DELETE FROM movimientos_bancarios WHERE id=?", (pago['id'],))
 
     if cuenta['referencia_tipo'] == 'factura_compra' and cuenta['referencia_id']:
         factura = conn.execute("SELECT * FROM facturas_compra WHERE id=?", (cuenta['referencia_id'],)).fetchone()
@@ -784,7 +839,7 @@ def revision_anular_cxp(cuenta_id):
     conn.execute("UPDATE cuentas_pagar SET estado='Anulada', monto_pagado=0, saldo=0 WHERE id=?", (cuenta_id,))
     conn.commit()
     conn.close()
-    flash('Cuenta por Pagar anulada correctamente.', 'success')
+    flash('Cuenta por Pagar anulada correctamente con reverso de pagos y asiento contable.', 'success')
     return redirect(url_for('revision_documentos', tipo='cxp'))
 
 @app.route('/revision-documentos/factura-venta/<int:factura_id>/anular', methods=['POST'])
@@ -829,9 +884,18 @@ def revision_anular_compra(factura_id):
         return redirect(url_for('revision_documentos', tipo='compras'))
     cxp = conn.execute("SELECT * FROM cuentas_pagar WHERE referencia_tipo='factura_compra' AND referencia_id=?", (factura_id,)).fetchone()
     if cxp and (cxp['monto_pagado'] or 0) > 0:
-        conn.close()
-        flash('No se puede anular una compra con pagos registrados. Primero anula el pago desde Pagos CxP.', 'danger')
-        return redirect(url_for('revision_documentos', tipo='compras'))
+        monto_pagado = round(cxp['monto_pagado'] or 0, 3)
+        crear_asiento_automatico(conn, hoy(), f"Anulacion pagos CxP {cxp['numero']}",
+            'anulacion_pago_cxp', cxp['id'], [
+            ('1.1.02', f"Reverso banco {cxp['numero']}", monto_pagado, 0),
+            ('2.1.01', f"Reverso pagos {cxp['numero']}", 0, monto_pagado),
+        ])
+        pagos = conn.execute('''
+            SELECT * FROM movimientos_bancarios
+            WHERE referencia=? AND tipo='Egreso' AND descripcion LIKE 'Pago CxP %'
+        ''', (cxp['numero'],)).fetchall()
+        for pago in pagos:
+            conn.execute("DELETE FROM movimientos_bancarios WHERE id=?", (pago['id'],))
 
     conn.execute("UPDATE facturas_compra SET estado='Anulada' WHERE id=?", (factura_id,))
     if cxp:

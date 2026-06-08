@@ -42,7 +42,21 @@
         <div class="card-body">
           <div id="items-container">
             <div class="row g-2 align-items-end item-row mb-2">
-              <div class="col-md-4">
+              <div class="col-md-2">
+                <label class="form-label">Item</label>
+                <select class="form-select item-predef" onchange="aplicarItemPredefinido(this)">
+                  <option value="">Manual</option>
+                  {% for item in items_preestablecidos %}
+                  <option value="{{ item.id }}"
+                          data-descripcion="{{ item.descripcion }}"
+                          data-precio="{{ item.precio_unitario or 0 }}"
+                          data-cuenta="{{ item.cuenta_ingreso_id or '' }}">
+                    {{ item.descripcion }}
+                  </option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-3">
                 <label class="form-label">Descripcion</label>
                 <input type="text" name="item_desc[]" class="form-control" required placeholder="Producto o servicio">
               </div>
@@ -132,9 +146,21 @@ function agregarItem() {
       i.value = i.name.includes('cant') ? '1' : i.name.includes('precio') ? '0' : '';
     }
   });
+  tpl.querySelector('.item-predef').value = '';
   tpl.querySelector('.item-sub').value = '0.000';
   document.getElementById('items-container').appendChild(tpl);
   tpl.querySelectorAll('.item-cant, .item-precio').forEach(i => i.addEventListener('input', calcularTotales));
+}
+
+function aplicarItemPredefinido(select) {
+  const opt = select.options[select.selectedIndex];
+  const row = select.closest('.item-row');
+  if (!opt || !opt.value) return;
+  row.querySelector('[name="item_desc[]"]').value = opt.dataset.descripcion || '';
+  row.querySelector('[name="item_precio[]"]').value = parseFloat(opt.dataset.precio || 0).toFixed(3);
+  const cuenta = opt.dataset.cuenta;
+  if (cuenta) row.querySelector('[name="item_cuenta_id[]"]').value = cuenta;
+  calcularTotales();
 }
 
 function eliminarItem(btn) {

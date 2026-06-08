@@ -125,6 +125,17 @@ def init_db():
     )''')
     _add_column_if_missing(c, 'factura_venta_items', 'cuenta_ingreso_id', 'INTEGER')
 
+    c.execute('''CREATE TABLE IF NOT EXISTS items_venta (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        codigo TEXT UNIQUE,
+        descripcion TEXT NOT NULL,
+        precio_unitario REAL DEFAULT 0,
+        cuenta_ingreso_id INTEGER,
+        estado TEXT DEFAULT 'Activo',
+        created_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY(cuenta_ingreso_id) REFERENCES plan_cuentas(id)
+    )''')
+
     # --- FACTURAS COMPRA ---
     c.execute('''CREATE TABLE IF NOT EXISTS facturas_compra (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

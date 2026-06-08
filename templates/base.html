@@ -30,6 +30,9 @@
     <a href="{{ url_for('ventas') }}" class="nav-link {% if 'venta' in request.endpoint %}active{% endif %}">
       <span class="icon"><i class="bi bi-receipt"></i></span> Facturas de Venta
     </a>
+    <a href="{{ url_for('items_venta') }}" class="nav-link {% if 'item_venta' in request.endpoint or request.endpoint=='items_venta' %}active{% endif %}">
+      <span class="icon"><i class="bi bi-tags"></i></span> Items de Venta
+    </a>
     <a href="{{ url_for('compras') }}" class="nav-link {% if 'compra' in request.endpoint %}active{% endif %}">
       <span class="icon"><i class="bi bi-bag-check"></i></span> Facturas de Compra
     </a>
